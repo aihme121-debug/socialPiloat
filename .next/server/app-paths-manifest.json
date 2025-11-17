@@ -1,0 +1,18 @@
+{
+  "/not-found": "app/not-found.js",
+  "/api/settings/profile/route": "app/api/settings/profile/route.js",
+  "/api/settings/notifications/route": "app/api/settings/notifications/route.js",
+  "/api/settings/privacy/route": "app/api/settings/privacy/route.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/analytics/metrics/route": "app/api/analytics/metrics/route.js",
+  "/api/businesses/route": "app/api/businesses/route.js",
+  "/api/team/members/route": "app/api/team/members/route.js",
+  "/api/team/invite/route": "app/api/team/invite/route.js",
+  "/api/facebook/conversations/route": "app/api/facebook/conversations/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js",
+  "/dashboard/team/page": "app/dashboard/team/page.js",
+  "/dashboard/analytics/page": "app/dashboard/analytics/page.js",
+  "/dashboard/ai/page": "app/dashboard/ai/page.js",
+  "/dashboard/chat/page": "app/dashboard/chat/page.js"
+}

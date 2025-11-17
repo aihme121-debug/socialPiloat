@@ -1,0 +1,601 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id          String    @id @default(uuid())
+  name        String
+  subdomain   String    @unique
+  settings    Json      @default("{}")
+  planType    String    @default("free") @map("plan_type")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  users       User[]
+  businesses  Business[]
+  teamInvitations TeamInvitation[]
+  
+  @@map("tenants")
+  @@index([subdomain])
+  @@index([planType])
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  name          String
+  avatar        String?
+  role          UserRole  @default(VIEWER)
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLogin     DateTime? @map("last_login")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  
+  tenantId      String    @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  businessId    String?   @map("business_id")
+  business      Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  
+  posts         Post[]
+  content       Content[]
+  chatMessages  ChatMessage[]
+  aiUsages      AIUsage[]
+  teamInvitationsSent TeamInvitation[] @relation("UserInvitations")
+  notificationSettings NotificationSettings?
+  privacySettings PrivacySettings?
+  
+  @@map("users")
+  @@index([tenantId])
+  @@index([email])
+  @@index([role])
+  @@index([businessId])
+}
+
+model Business {
+  id            String    @id @default(uuid())
+  name          String
+  description   String?
+  logo          String?
+  website       String?
+  industry      String?
+  size          BusinessSize?
+  timezone      String    @default("UTC")
+  settings      Json      @default("{}")
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  
+  tenantId      String    @map("tenant_id")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  users         User[]
+  socialAccounts SocialAccount[]
+  posts         Post[]
+  content       Content[]
+  customers     Customer[]
+  analytics     Analytics[]
+  payments      Payment[]
+  teamInvitations TeamInvitation[]
+  automationRules AutomationRule[]
+  
+  @@map("businesses")
+  @@index([tenantId])
+}
+
+model TeamInvitation {
+  id          String    @id @default(uuid())
+  email       String
+  name        String
+  role        UserRole
+  token       String    @unique
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime  @map("expires_at")
+  invitedBy   String    @map("invited_by")
+  resentAt    DateTime? @map("resent_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  tenantId    String    @map("tenant_id")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  businessId  String?   @map("business_id")
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  
+  invitedByUser User    @relation("UserInvitations", fields: [invitedBy], references: [id], onDelete: Cascade)
+  
+  @@unique([email, tenantId, status])
+  @@map("team_invitations")
+  @@index([token])
+  @@index([email])
+  @@index([tenantId])
+  @@index([status])
+}
+
+model SocialAccount {
+  id                String    @id @default(uuid())
+  platform          SocialPlatform
+  accountId         String    @map("account_id")
+  accountName       String    @map("account_name")
+  accessToken       String    @map("access_token")
+  refreshToken      String?   @map("refresh_token")
+  expiresAt         DateTime? @map("expires_at")
+  settings          Json      @default("{}")
+  isActive          Boolean   @default(true) @map("is_active")
+  connectedAt       DateTime  @default(now()) @map("connected_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  
+  businessId        String    @map("business_id")
+  business          Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  posts             Post[]
+  
+  @@unique([businessId, platform, accountId])
+  @@map("social_accounts")
+  @@index([businessId])
+  @@index([platform])
+}
+
+model Content {
+  id            String    @id @default(uuid())
+  contentType   String    @default("post") @map("content_type")
+  contentText   String?   @map("content_text") @db.Text
+  mediaUrls     String[]  @map("media_urls")
+  aiMetadata    Json      @default("{}") @map("ai_metadata")
+  status        ContentStatus @default(DRAFT)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  businessId    String    @map("business_id")
+  business      Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  campaignId    String?   @map("campaign_id")
+  campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  
+  posts         Post[]
+  
+  @@map("content")
+  @@index([userId])
+  @@index([businessId])
+  @@index([campaignId])
+  @@index([status])
+}
+
+model Post {
+  id                String    @id @default(uuid())
+  platforms         SocialPlatform[]
+  scheduledAt       DateTime? @map("scheduled_at")
+  publishedAt       DateTime? @map("published_at")
+  performanceMetrics Json     @default("{}") @map("performance_metrics")
+  status            PostStatus @default(DRAFT)
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  
+  contentId         String    @map("content_id")
+  content           Content   @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  
+  userId            String    @map("user_id")
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  businessId        String    @map("business_id")
+  business          Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  socialAccountId   String    @map("social_account_id")
+  socialAccount     SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  
+  @@map("posts")
+  @@index([contentId])
+  @@index([userId])
+  @@index([businessId])
+  @@index([socialAccountId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model Customer {
+  id              String    @id @default(uuid())
+  name            String
+  email           String?
+  phone           String?
+  avatar          String?
+  socialProfiles  Json      @default("{}") @map("social_profiles")
+  tags            String[]
+  notes           String    @default("") @db.Text
+  leadScore       Int       @default(0) @map("lead_score")
+  lastInteraction DateTime? @map("last_interaction")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  businessId      String    @map("business_id")
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  chatMessages    ChatMessage[]
+  
+  @@map("customers")
+  @@index([businessId])
+  @@index([leadScore])
+}
+
+model ChatMessage {
+  id            String    @id @default(uuid())
+  platform      SocialPlatform
+  accountId     String    @map("account_id")
+  messageId     String    @map("message_id")
+  senderId      String    @map("sender_id")
+  senderName    String    @map("sender_name")
+  content       String    @db.Text
+  mediaUrls     String[]  @map("media_urls")
+  timestamp     DateTime
+  isRead        Boolean   @default(false) @map("is_read")
+  isReplied     Boolean   @default(false) @map("is_replied")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  userId        String?   @map("user_id")
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  customerId    String?   @map("customer_id")
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  businessId    String    @map("business_id")
+  
+  @@map("chat_messages")
+  @@index([userId])
+  @@index([customerId])
+  @@index([businessId])
+  @@index([platform])
+  @@index([timestamp])
+}
+
+model Analytics {
+  id          String          @id @default(uuid())
+  metric      AnalyticsMetric
+  value       Float
+  platform    SocialPlatform?
+  period      AnalyticsPeriod @default(DAILY)
+  date        DateTime
+  data        Json            @default("{}")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  
+  businessId  String          @map("business_id")
+  business    Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  @@map("analytics")
+  @@index([businessId])
+  @@index([metric])
+  @@index([date])
+  @@index([platform])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  amount          Float
+  currency        String        @default("BDT")
+  status          PaymentStatus @default(PENDING)
+  method          PaymentMethod
+  transactionId   String?       @map("transaction_id")
+  gatewayResponse Json?         @map("gateway_response")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  
+  businessId      String        @map("business_id")
+  business        Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  @@map("payments")
+  @@index([businessId])
+  @@index([status])
+  @@index([transactionId])
+}
+
+model AIModel {
+  id          String    @id @default(uuid())
+  name        String
+  type        AIModelType
+  description String
+  pricing     Json      @default("{}")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  aiUsages    AIUsage[]
+  
+  @@map("ai_models")
+  @@index([type])
+  @@index([isActive])
+}
+
+model AIUsage {
+  id            String    @id @default(uuid())
+  type          AIUsageType
+  inputTokens   Int       @map("input_tokens")
+  outputTokens  Int?      @map("output_tokens")
+  cost          Float
+  createdAt     DateTime  @default(now()) @map("created_at")
+  
+  modelId       String    @map("model_id")
+  model         AIModel   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  
+  userId        String    @map("user_id")
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  businessId    String    @map("business_id")
+  
+  @@map("ai_usage")
+  @@index([modelId])
+  @@index([userId])
+  @@index([businessId])
+  @@index([createdAt])
+}
+
+model Campaign {
+  id          String    @id @default(uuid())
+  name        String
+  objectives  Json      @default("{}")
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  budget      Json      @default("{}")
+  status      CampaignStatus @default(DRAFT)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  content     Content[]
+  automationRules AutomationRule[]
+  
+  @@map("campaigns")
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model AutomationRule {
+  id                String    @id @default(uuid())
+  name              String
+  description       String?
+  triggerType       AutomationTriggerType @map("trigger_type")
+  triggerConfig     Json      @map("trigger_config")
+  conditions        Json      @default("{}")
+  actions           Json      @default("{}")
+  status            AutomationStatus @default(ACTIVE)
+  priority          Int       @default(0)
+  lastExecutedAt    DateTime? @map("last_executed_at")
+  executionCount    Int       @default(0) @map("execution_count")
+  successCount      Int       @default(0) @map("success_count")
+  failureCount      Int       @default(0) @map("failure_count")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  createdBy         String    @map("created_by")
+  
+  businessId        String    @map("business_id")
+  business          Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  campaignId        String?   @map("campaign_id")
+  campaign          Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  
+  executions        AutomationExecution[]
+  
+  @@map("automation_rules")
+  @@index([businessId])
+  @@index([status])
+  @@index([triggerType])
+  @@index([priority])
+  @@index([campaignId])
+}
+
+model AutomationExecution {
+  id                String    @id @default(uuid())
+  status            AutomationExecutionStatus
+  triggeredAt       DateTime  @default(now()) @map("triggered_at")
+  completedAt       DateTime? @map("completed_at")
+  triggerData       Json      @default("{}") @map("trigger_data")
+  executionResult   Json      @default("{}") @map("execution_result")
+  errorMessage      String?   @map("error_message")
+  executionDurationMs Int?    @map("execution_duration_ms")
+  
+  ruleId            String    @map("rule_id")
+  rule              AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  
+  @@map("automation_executions")
+  @@index([ruleId])
+  @@index([triggeredAt])
+  @@index([status])
+}
+
+model NotificationSettings {
+  id                  String    @id @default(uuid())
+  emailNotifications  Boolean   @default(true) @map("email_notifications")
+  pushNotifications   Boolean   @default(true) @map("push_notifications")
+  marketingEmails     Boolean   @default(false) @map("marketing_emails")
+  securityAlerts      Boolean   @default(true) @map("security_alerts")
+  contentReminders    Boolean   @default(true) @map("content_reminders")
+  analyticsReports    Boolean   @default(true) @map("analytics_reports")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  
+  userId              String    @unique @map("user_id")
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notification_settings")
+  @@index([userId])
+}
+
+model PrivacySettings {
+  id                  String    @id @default(uuid())
+  profileVisibility   Boolean   @default(true) @map("profile_visibility")
+  showEmail           Boolean   @default(false) @map("show_email")
+  showActivity        Boolean   @default(true) @map("show_activity")
+  dataSharing         Boolean   @default(false) @map("data_sharing")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  
+  userId              String    @unique @map("user_id")
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("privacy_settings")
+  @@index([userId])
+}
+
+// Enums
+enum UserRole {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  ORGANIZATION_ADMIN
+  TEAM_MANAGER
+  CONTENT_CREATOR
+  SOCIAL_MEDIA_MANAGER
+  ANALYST
+  VIEWER
+  
+  @@map("user_role")
+}
+
+enum BusinessSize {
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+  
+  @@map("business_size")
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  TWITTER
+  LINKEDIN
+  TIKTOK
+  YOUTUBE
+  PINTEREST
+  WHATSAPP
+  
+  @@map("social_platform")
+}
+
+enum ContentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  
+  @@map("content_status")
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  
+  @@map("post_status")
+}
+
+enum AnalyticsMetric {
+  FOLLOWERS
+  ENGAGEMENT
+  REACH
+  IMPRESSIONS
+  CLICKS
+  CONVERSIONS
+  SENTIMENT
+  
+  @@map("analytics_metric")
+}
+
+enum AnalyticsPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  
+  @@map("analytics_period")
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+  
+  @@map("payment_status")
+}
+
+enum PaymentMethod {
+  SSLCOMMERZ
+  BKASH
+  STRIPE
+  
+  @@map("payment_method")
+}
+
+enum AIModelType {
+  GPT_4
+  GPT_3_5_TURBO
+  DALL_E_3
+  CUSTOM
+  
+  @@map("ai_model_type")
+}
+
+enum AIUsageType {
+  TEXT
+  IMAGE
+  EMBEDDING
+  
+  @@map("ai_usage_type")
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+  
+  @@map("campaign_status")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
+  
+  @@map("invitation_status")
+}
+
+enum AutomationTriggerType {
+  TIME_BASED
+  EVENT_BASED
+  CONDITION_BASED
+  
+  @@map("automation_trigger_type")
+}
+
+enum AutomationStatus {
+  ACTIVE
+  PAUSED
+  DRAFT
+  
+  @@map("automation_status")
+}
+
+enum AutomationExecutionStatus {
+  SUCCESS
+  FAILED
+  SKIPPED
+  
+  @@map("automation_execution_status")
+}
