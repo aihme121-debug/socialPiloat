@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import dynamicOAuthConfig from '@/lib/social-media/oauth-config';
 
+export const dynamic = 'force-dynamic';
+
 // Get dynamic Instagram configuration
 const getInstagramConfig = () => {
   const config = dynamicOAuthConfig.getConfigForProvider('instagram');

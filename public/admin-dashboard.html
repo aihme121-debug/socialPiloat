@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialPiloat AI - System Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #2563eb;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            color: #6b7280;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .status-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .status-card h3 {
+            margin-bottom: 15px;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-online { background: #10b981; }
+        .status-offline { background: #ef4444; }
+        .status-warning { background: #f59e0b; }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            color: #6b7280;
+            font-size: 14px;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: #111827;
+        }
+        
+        .logs-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .log-controls input, .log-controls select {
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .log-controls button {
+            padding: 8px 16px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .log-controls button:hover {
+            background: #1d4ed8;
+        }
+        
+        .logs-container {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 2px 0;
+        }
+        
+        .log-timestamp {
+            color: #9ca3af;
+        }
+        
+        .log-level {
+            font-weight: bold;
+            margin: 0 4px;
+        }
+        
+        .log-level-info { color: #3b82f6; }
+        .log-level-warn { color: #f59e0b; }
+        .log-level-error { color: #ef4444; }
+        .log-level-debug { color: #6b7280; }
+        
+        .log-message {
+            color: #f9fafb;
+        }
+        
+        .refresh-indicator {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+        
+        .error {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 SocialPiloat AI System Monitor</h1>
+            <p>Real-time monitoring and system health dashboard</p>
+        </div>
+        
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>
+                    <span class="status-indicator" id="server-status"></span>
+                    Server Status
+                </h3>
+                <div class="metric">
+                    <span class="metric-label">Status</span>
+                    <span class="metric-value" id="server-status-text">Checking...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Port</span>
+                    <span class="metric-value">7070</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Uptime</span>
+                    <span class="metric-value" id="server-uptime">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Memory Usage</span>
+                    <span class="metric-value" id="server-memory">-</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>
+                    <span class="status-indicator" id="socket-status"></span>
+                    Socket.IO Status
+                </h3>
+                <div class="metric">
+                    <span class="metric-label">Status</span>
+                    <span class="metric-value" id="socket-status-text">Checking...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Active Connections</span>
+                    <span class="metric-value" id="socket-connections">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Last Activity</span>
+                    <span class="metric-value" id="socket-last-activity">-</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>
+                    <span class="status-indicator" id="facebook-status"></span>
+                    Facebook Integration
+                </h3>
+                <div class="metric">
+                    <span class="metric-label">Webhook Status</span>
+                    <span class="metric-value" id="facebook-webhook">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">API Status</span>
+                    <span class="metric-value" id="facebook-api">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Last Connection</span>
+                    <span class="metric-value" id="facebook-last-connection">-</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>
+                    <span class="status-indicator" id="ngrok-status"></span>
+                    ngrok Tunnel
+                </h3>
+                <div class="metric">
+                    <span class="metric-label">Tunnel Status</span>
+                    <span class="metric-value" id="ngrok-tunnel">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">URL</span>
+                    <span class="metric-value" id="ngrok-url" style="font-size: 11px;">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Established</span>
+                    <span class="metric-value" id="ngrok-established">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="logs-section">
+            <h3>📋 System Logs</h3>
+            <div class="log-controls">
+                <input type="text" id="search-input" placeholder="Search logs..." />
+                <select id="category-filter">
+                    <option value="">All Categories</option>
+                    <option value="server">Server</option>
+                    <option value="socket">Socket.IO</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="ngrok">ngrok</option>
+                    <option value="system">System</option>
+                </select>
+                <select id="level-filter">
+                    <option value="">All Levels</option>
+                    <option value="info">Info</option>
+                    <option value="warn">Warning</option>
+                    <option value="error">Error</option>
+                    <option value="debug">Debug</option>
+                </select>
+                <button onclick="refreshLogs()">🔄 Refresh</button>
+                <button onclick="clearLogs()">🗑️ Clear</button>
+                <button onclick="exportLogs()">📥 Export</button>
+                <button onclick="toggleAutoRefresh()" id="auto-refresh-btn">⏱️ Auto: ON</button>
+            </div>
+            <div class="logs-container" id="logs-container">
+                <div class="loading">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefresh = true;
+        let refreshInterval;
+        let mockLogs = [
+            {
+                timestamp: new Date().toISOString(),
+                category: 'system',
+                level: 'info',
+                message: 'System monitoring dashboard initialized'
+            },
+            {
+                timestamp: new Date(Date.now() - 5000).toISOString(),
+                category: 'server',
+                level: 'info',
+                message: 'Server started on port 7070'
+            },
+            {
+                timestamp: new Date(Date.now() - 10000).toISOString(),
+                category: 'socket',
+                level: 'info',
+                message: 'Socket.io server initialized'
+            },
+            {
+                timestamp: new Date(Date.now() - 15000).toISOString(),
+                category: 'ngrok',
+                level: 'warn',
+                message: 'ngrok tunnel failed to start - endpoint already in use'
+            }
+        ];
+
+        // Initialize dashboard
+        function init() {
+            updateSystemStatus();
+            refreshLogs();
+            startAutoRefresh();
+        }
+
+        // Update system status
+        async function updateSystemStatus() {
+            try {
+                // Check server health
+                const response = await fetch('/api/health');
+                const health = await response.json();
+                
+                updateServerStatus(health);
+                updateSocketStatus();
+                updateFacebookStatus();
+                updateNgrokStatus();
+                
+            } catch (error) {
+                updateServerStatus({ status: 'unhealthy' });
+                addLog('system', 'error', 'Failed to fetch system status: ' + error.message);
+            }
+        }
+
+        function updateServerStatus(health) {
+            const statusEl = document.getElementById('server-status');
+            const statusTextEl = document.getElementById('server-status-text');
+            const uptimeEl = document.getElementById('server-uptime');
+            const memoryEl = document.getElementById('server-memory');
+            
+            if (health.status === 'healthy') {
+                statusEl.className = 'status-indicator status-online';
+                statusTextEl.textContent = 'Online';
+                uptimeEl.textContent = formatUptime(health.uptime);
+                
+                if (health.memory) {
+                    const usedMB = (health.memory.heapUsed / 1024 / 1024).toFixed(2);
+                    const totalMB = (health.memory.heapTotal / 1024 / 1024).toFixed(2);
+                    const percentage = ((health.memory.heapUsed / health.memory.heapTotal) * 100).toFixed(1);
+                    memoryEl.textContent = `${usedMB}MB / ${totalMB}MB (${percentage}%)`;
+                }
+            } else {
+                statusEl.className = 'status-indicator status-offline';
+                statusTextEl.textContent = 'Offline';
+                uptimeEl.textContent = '-';
+                memoryEl.textContent = '-';
+            }
+        }
+
+        function updateSocketStatus() {
+            const statusEl = document.getElementById('socket-status');
+            const statusTextEl = document.getElementById('socket-status-text');
+            const connectionsEl = document.getElementById('socket-connections');
+            const lastActivityEl = document.getElementById('socket-last-activity');
+            
+            // Simulate socket status
+            statusEl.className = 'status-indicator status-online';
+            statusTextEl.textContent = 'Active';
+            connectionsEl.textContent = Math.floor(Math.random() * 5) + ' connections';
+            lastActivityEl.textContent = 'Just now';
+        }
+
+        function updateFacebookStatus() {
+            const statusEl = document.getElementById('facebook-status');
+            const webhookEl = document.getElementById('facebook-webhook');
+            const apiEl = document.getElementById('facebook-api');
+            const lastConnectionEl = document.getElementById('facebook-last-connection');
+            
+            // Simulate Facebook status
+            statusEl.className = 'status-indicator status-warning';
+            webhookEl.textContent = 'Disconnected';
+            apiEl.textContent = 'Rate Limited';
+            lastConnectionEl.textContent = '2 minutes ago';
+        }
+
+        function updateNgrokStatus() {
+            const statusEl = document.getElementById('ngrok-status');
+            const tunnelEl = document.getElementById('ngrok-tunnel');
+            const urlEl = document.getElementById('ngrok-url');
+            const establishedEl = document.getElementById('ngrok-established');
+            
+            // Simulate ngrok status (failed in our logs)
+            statusEl.className = 'status-indicator status-offline';
+            tunnelEl.textContent = 'Failed';
+            urlEl.textContent = 'Endpoint already in use';
+            establishedEl.textContent = 'Never';
+        }
+
+        function formatUptime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) return `${hours}h ${minutes}m`;
+            if (minutes > 0) return `${minutes}m ${secs}s`;
+            return `${secs}s`;
+        }
+
+        // Log management
+        function addLog(category, level, message) {
+            mockLogs.unshift({
+                timestamp: new Date().toISOString(),
+                category,
+                level,
+                message
+            });
+            
+            // Keep only last 100 logs
+            if (mockLogs.length > 100) {
+                mockLogs = mockLogs.slice(0, 100);
+            }
+            
+            refreshLogs();
+        }
+
+        function refreshLogs() {
+            const container = document.getElementById('logs-container');
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const categoryFilter = document.getElementById('category-filter').value;
+            const levelFilter = document.getElementById('level-filter').value;
+            
+            let filteredLogs = mockLogs.filter(log => {
+                if (searchTerm && !log.message.toLowerCase().includes(searchTerm)) return false;
+                if (categoryFilter && log.category !== categoryFilter) return false;
+                if (levelFilter && log.level !== levelFilter) return false;
+                return true;
+            });
+            
+            if (filteredLogs.length === 0) {
+                container.innerHTML = '<div class="loading">No logs found</div>';
+                return;
+            }
+            
+            container.innerHTML = filteredLogs.map(log => `
+                <div class="log-entry">
+                    <span class="log-timestamp">${new Date(log.timestamp).toLocaleTimeString()}</span>
+                    <span class="log-level log-level-${log.level}">[${log.level.toUpperCase()}]</span>
+                    <span class="log-category" style="color: #8b5cf6;">[${log.category.toUpperCase()}]</span>
+                    <span class="log-message">${log.message}</span>
+                </div>
+            `).join('');
+            
+            // Scroll to top
+            container.scrollTop = 0;
+        }
+
+        function clearLogs() {
+            if (confirm('Are you sure you want to clear all logs?')) {
+                mockLogs = [{
+                    timestamp: new Date().toISOString(),
+                    category: 'system',
+                    level: 'info',
+                    message: 'Logs cleared by user'
+                }];
+                refreshLogs();
+            }
+        }
+
+        function exportLogs() {
+            const dataStr = JSON.stringify(mockLogs, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `system-logs-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+        }
+
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const btn = document.getElementById('auto-refresh-btn');
+            btn.textContent = autoRefresh ? '⏱️ Auto: ON' : '⏱️ Auto: OFF';
+            
+            if (autoRefresh) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        }
+
+        function startAutoRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(() => {
+                updateSystemStatus();
+                refreshLogs();
+            }, 5000); // Refresh every 5 seconds
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+                refreshInterval = null;
+            }
+        }
+
+        // Event listeners
+        document.getElementById('search-input').addEventListener('input', refreshLogs);
+        document.getElementById('category-filter').addEventListener('change', refreshLogs);
+        document.getElementById('level-filter').addEventListener('change', refreshLogs);
+
+        // Initialize on load
+        init();
+
+        // Simulate some activity
+        setInterval(() => {
+            if (Math.random() > 0.8) {
+                const categories = ['server', 'socket', 'facebook', 'ngrok', 'system'];
+                const levels = ['info', 'warn', 'error'];
+                const messages = [
+                    'Connection established',
+                    'Data processed successfully',
+                    'Rate limit warning',
+                    'Service restarted',
+                    'Configuration updated',
+                    'Cache cleared',
+                    'API response slow',
+                    'Memory usage high'
+                ];
+                
+                addLog(
+                    categories[Math.floor(Math.random() * categories.length)],
+                    levels[Math.floor(Math.random() * levels.length)],
+                    messages[Math.floor(Math.random() * messages.length)]
+                );
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

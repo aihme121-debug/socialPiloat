@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import dynamicOAuthConfig from '@/lib/social-media/oauth-config';
 
+export const dynamic = 'force-dynamic';
+
 // Get dynamic Facebook configuration
 const getFacebookConfig = () => {
   const config = dynamicOAuthConfig.getConfigForProvider('facebook');

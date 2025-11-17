@@ -6,6 +6,8 @@ import { FacebookService } from '@/lib/services/facebook-service';
 import { apiHandler, ValidationError, AuthenticationError, ExternalServiceError } from '@/lib/error-handling/error-handler';
 import { logger } from '@/lib/logging/logger-service';
 
+export const dynamic = 'force-dynamic';
+
 export const GET = apiHandler(async (request: Request) => {
   const session = await getServerSession(authOptions);
   

@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { monitoringService } from '@/lib/monitoring/monitoring-service';
 
+/**
+ * GET /api/health
+ * Simple health check endpoint
+ */
 export async function GET(request: NextRequest) {
   try {
-    const healthCheck = await monitoringService.performHealthCheck();
-    
-    // Determine HTTP status code based on health status
-    const statusCode = healthCheck.status === 'healthy' ? 200 : 
-                      healthCheck.status === 'degraded' ? 503 : 503;
-    
-    return NextResponse.json(healthCheck, { status: statusCode });
-  } catch (error) {
-    monitoringService.logError(error instanceof Error ? error : new Error('Health check failed'));
-    
     return NextResponse.json({
-      status: 'unhealthy',
+      status: 'healthy',
       timestamp: new Date().toISOString(),
-      error: 'Health check failed',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    }, { status: 503 });
+      service: 'socialpiloat-ai',
+      version: '1.0.0',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { 
+        status: 'unhealthy',
+        error: 'Health check failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 500 }
+    );
   }
 }

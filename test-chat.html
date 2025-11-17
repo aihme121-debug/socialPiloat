@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat System Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        .message { background-color: #e9ecef; padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .sent { background-color: #007bff; color: white; text-align: right; }
+        .received { background-color: #6c757d; color: white; }
+        input, button { padding: 10px; margin: 5px; }
+        input { width: 70%; }
+        button { width: 25%; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Chat System Test</h1>
+        <div id="status" class="status disconnected">Connecting to socket server...</div>
+        
+        <div id="conversations">
+            <h3>Test Conversations</h3>
+            <div class="message">Mock Conversation 1: John Doe</div>
+            <div class="message">Mock Conversation 2: Jane Smith</div>
+        </div>
+        
+        <div id="messages">
+            <h3>Messages</h3>
+            <div class="message received">Hello, I have a question about your services.</div>
+            <div class="message sent">Of course! I'd be happy to help. What would you like to know?</div>
+            <div class="message received">What are your pricing plans?</div>
+        </div>
+        
+        <div>
+            <input type="text" id="messageInput" placeholder="Type a message..." />
+            <button onclick="sendMessage()">Send Message</button>
+        </div>
+        
+        <div>
+            <button onclick="simulateIncomingMessage()">Simulate Incoming Message</button>
+            <button onclick="joinConversation()">Join Conversation</button>
+            <button onclick="leaveConversation()">Leave Conversation</button>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let currentConversationId = 'mock_conversation_1';
+        
+        function initializeSocket() {
+            socket = io('http://localhost:3002', {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000,
+            });
+            
+            socket.on('connect', () => {
+                console.log('Connected to socket server:', socket.id);
+                document.getElementById('status').className = 'status connected';
+                document.getElementById('status').textContent = 'Connected to socket server: ' + socket.id;
+                
+                // Join a conversation
+                joinConversation();
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('Disconnected from socket server');
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').textContent = 'Disconnected from socket server';
+            });
+            
+            socket.on('connect_error', (error) => {
+                console.error('Socket connection error:', error);
+                document.getElementById('status').className = 'status disconnected';
+                document.getElementById('status').textContent = 'Connection error: ' + error.message;
+            });
+            
+            socket.on('receive-message', (data) => {
+                console.log('Received message:', data);
+                addMessageToChat(data.content, 'received', data.senderName);
+            });
+            
+            socket.on('new-message', (data) => {
+                console.log('New message event:', data);
+                addMessageToChat(data.content, 'received', data.senderName);
+            });
+            
+            socket.on('user-typing', (data) => {
+                console.log('User typing:', data);
+                showTypingIndicator(data.userId, data.isTyping);
+            });
+            
+            socket.on('message-sent', (data) => {
+                console.log('Message sent confirmation:', data);
+            });
+            
+            socket.on('message-delivered-status', (data) => {
+                console.log('Message delivered:', data);
+            });
+            
+            socket.on('message-read-status', (data) => {
+                console.log('Message read:', data);
+            });
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !socket) return;
+            
+            const messageData = {
+                id: 'test-' + Date.now(),
+                conversationId: currentConversationId,
+                senderId: 'test-user',
+                senderName: 'Test User',
+                content: message,
+                timestamp: new Date().toISOString(),
+                status: 'sent',
+                isRead: false
+            };
+            
+            // Send message through socket
+            socket.emit('send-message', messageData);
+            
+            // Add to local chat
+            addMessageToChat(message, 'sent', 'You');
+            
+            // Clear input
+            input.value = '';
+        }
+        
+        function simulateIncomingMessage() {
+            if (!socket) return;
+            
+            const messageData = {
+                id: 'incoming-' + Date.now(),
+                conversationId: currentConversationId,
+                senderId: 'customer_1',
+                senderName: 'John Doe',
+                content: 'This is a simulated incoming message!',
+                timestamp: new Date().toISOString(),
+                status: 'delivered',
+                isRead: false
+            };
+            
+            // Emit as if it came from another user
+            socket.emit('send-message', messageData);
+        }
+        
+        function joinConversation() {
+            if (!socket) return;
+            
+            socket.emit('join-conversation', currentConversationId);
+            console.log('Joined conversation:', currentConversationId);
+            addSystemMessage('Joined conversation: ' + currentConversationId);
+        }
+        
+        function leaveConversation() {
+            if (!socket) return;
+            
+            socket.emit('leave-conversation', currentConversationId);
+            console.log('Left conversation:', currentConversationId);
+            addSystemMessage('Left conversation: ' + currentConversationId);
+        }
+        
+        function addMessageToChat(content, type, sender) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + type;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${content}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function addSystemMessage(content) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.style.backgroundColor = '#ffc107';
+            messageDiv.style.color = '#212529';
+            messageDiv.textContent = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function showTypingIndicator(userId, isTyping) {
+            console.log('Typing indicator:', userId, isTyping ? 'is typing' : 'stopped typing');
+        }
+        
+        // Handle Enter key in input
+        document.getElementById('messageInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Initialize socket connection when page loads
+        window.onload = function() {
+            initializeSocket();
+        };
+    </script>
+</body>
+</html>

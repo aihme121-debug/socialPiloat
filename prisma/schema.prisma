@@ -85,6 +85,7 @@ model Business {
   payments      Payment[]
   teamInvitations TeamInvitation[]
   automationRules AutomationRule[]
+  conversations Conversation[]
   
   @@map("businesses")
   @@index([tenantId])
@@ -228,6 +229,30 @@ model Customer {
   @@index([leadScore])
 }
 
+model Conversation {
+  id              String    @id @default(uuid())
+  platform        SocialPlatform
+  accountId       String    @map("account_id")
+  participantIds  String[]  @map("participant_ids")
+  participantNames String[] @map("participant_names")
+  lastMessageAt   DateTime? @map("last_message_at")
+  unreadCount     Int       @default(0) @map("unread_count")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  
+  businessId      String    @map("business_id")
+  business        Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  messages        ChatMessage[]
+  
+  @@map("conversations")
+  @@index([businessId])
+  @@index([accountId])
+  @@index([lastMessageAt])
+  @@index([platform])
+}
+
 model ChatMessage {
   id            String    @id @default(uuid())
   platform      SocialPlatform
@@ -238,8 +263,12 @@ model ChatMessage {
   content       String    @db.Text
   mediaUrls     String[]  @map("media_urls")
   timestamp     DateTime
+  status        MessageStatus @default(SENT) @map("status")
   isRead        Boolean   @default(false) @map("is_read")
   isReplied     Boolean   @default(false) @map("is_replied")
+  isTyping      Boolean   @default(false) @map("is_typing")
+  deliveredAt   DateTime? @map("delivered_at")
+  readAt        DateTime? @map("read_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   
   userId        String?   @map("user_id")
@@ -247,6 +276,9 @@ model ChatMessage {
   
   customerId    String?   @map("customer_id")
   customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  
+  conversationId String?  @map("conversation_id")
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   
   businessId    String    @map("business_id")
   
@@ -256,6 +288,8 @@ model ChatMessage {
   @@index([businessId])
   @@index([platform])
   @@index([timestamp])
+  @@index([status])
+  @@index([conversationId])
 }
 
 model Analytics {
@@ -598,4 +632,13 @@ enum AutomationExecutionStatus {
   SKIPPED
   
   @@map("automation_execution_status")
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  
+  @@map("message_status")
 }

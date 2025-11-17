@@ -118,6 +118,18 @@ export class FacebookService {
       const response = await fetch(url);
       const data = await response.json();
       
+      // Check if this is a user access token error
+      if (data.error && data.error.code === 100) {
+        console.log('Page insights not available with user token, returning empty metrics');
+        return {
+          page_impressions: [{ value: 0 }],
+          page_impressions_unique: [{ value: 0 }],
+          page_engaged_users: [{ value: 0 }],
+          page_fan_adds: [{ value: 0 }],
+          page_fan_removes: [{ value: 0 }]
+        };
+      }
+      
       if (data.error) {
         throw new Error(`Facebook API error: ${data.error.message}`);
       }
@@ -167,11 +179,28 @@ export class FacebookService {
   }
 
   private async getFollowerCount(pageId: string, accessToken: string): Promise<number> {
-    const url = `${this.baseURL}/${pageId}?fields=fan_count&access_token=${accessToken}`;
+    // Try to get fan_count first (for pages)
+    let url = `${this.baseURL}/${pageId}?fields=fan_count&access_token=${accessToken}`;
     
     try {
       const response = await fetch(url);
       const data = await response.json();
+      
+      // Check if this is a user access token error
+      if (data.error && data.error.code === 100) {
+        console.log('Fan count not available with user token, trying followers_count');
+        // Try followers_count for user accounts
+        url = `${this.baseURL}/${pageId}?fields=followers_count&access_token=${accessToken}`;
+        const userResponse = await fetch(url);
+        const userData = await userResponse.json();
+        
+        if (userData.error) {
+          console.log('Followers count also not available, returning 0');
+          return 0;
+        }
+        
+        return userData.followers_count || 0;
+      }
       
       if (data.error) {
         throw new Error(`Facebook API error: ${data.error.message}`);

@@ -1,51 +1,40 @@
 const { PrismaClient } = require('@prisma/client');
+
 const prisma = new PrismaClient();
 
-async function checkAccounts() {
+async function checkSocialAccounts() {
   try {
-    console.log('Checking social accounts...');
-    
-    const accounts = await prisma.socialAccount.findMany({
-      include: { 
-        business: { 
-          include: { users: true } 
-        } 
-      }
-    });
-    
-    console.log('Total social accounts:', accounts.length);
-    
-    accounts.forEach((account, index) => {
-      console.log(`\nAccount ${index + 1}:`);
-      console.log('  ID:', account.id);
-      console.log('  Platform:', account.platform);
-      console.log('  Account ID:', account.accountId);
-      console.log('  Account Name:', account.accountName);
-      console.log('  Business ID:', account.businessId);
-      console.log('  Is Active:', account.isActive);
-      console.log('  Connected At:', account.connectedAt);
-      console.log('  Business Users:', account.business?.users?.map(u => u.email).join(', ') || 'No users');
-    });
-    
-    // Check users and their businesses
-    console.log('\n--- Users and Businesses ---');
-    const users = await prisma.user.findMany({
+    // Get the first user to check their business
+    const user = await prisma.user.findFirst({
       include: { business: true }
     });
-    
-    users.forEach((user, index) => {
-      console.log(`\nUser ${index + 1}:`);
-      console.log('  Email:', user.email);
-      console.log('  User ID:', user.id);
-      console.log('  Business ID:', user.businessId);
-      console.log('  Business Name:', user.business?.name || 'No business');
-    });
-    
+
+    if (!user) {
+      console.log('No users found');
+      return;
+    }
+
+    console.log('User:', user.email);
+    console.log('Business:', user.business?.name || 'No business');
+
+    if (user.business) {
+      // Check social accounts for this business
+      const socialAccounts = await prisma.socialAccount.findMany({
+        where: { businessId: user.business.id }
+      });
+
+      console.log('Social Accounts:', socialAccounts.length);
+      socialAccounts.forEach(account => {
+        console.log(`- ${account.platform}: ${account.accountName} (${account.accountId})`);
+        console.log(`  Active: ${account.isActive}`);
+        console.log(`  Settings:`, account.settings);
+      });
+    }
   } catch (error) {
-    console.error('Error checking accounts:', error);
+    console.error('Error:', error);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-checkAccounts();
+checkSocialAccounts();

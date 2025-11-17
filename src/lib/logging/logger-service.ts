@@ -302,6 +302,19 @@ export class LoggerService {
   clearLogs(): void {
     this.logs = [];
   }
+
+  /**
+   * Public logging method for external use
+   */
+  public async logMessage(
+    level: LogLevel,
+    message: string,
+    context?: Record<string, any>,
+    error?: Error,
+    metadata?: Record<string, any>
+  ): Promise<void> {
+    return this.log(level, message, context, error, metadata);
+  }
 }
 
 export const logger = LoggerService.getInstance();

@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 SocialPiloat AI - Real-Time System Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+        
+        .header h1 {
+            color: #3b82f6;
+            margin-bottom: 5px;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header p {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+        
+        .connection-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-online { 
+            background: #10b981; 
+            box-shadow: 0 0 10px #10b981;
+        }
+        .status-offline { 
+            background: #ef4444; 
+            box-shadow: 0 0 10px #ef4444;
+        }
+        .status-warning { 
+            background: #f59e0b; 
+            box-shadow: 0 0 10px #f59e0b;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid #333;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0,0,0,0.4);
+        }
+        
+        .metric-card h3 {
+            margin-bottom: 15px;
+            color: #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #374151;
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            color: #9ca3af;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .metric-value {
+            font-weight: 600;
+            color: #f9fafb;
+            font-size: 14px;
+        }
+        
+        .metric-value.warning {
+            color: #f59e0b;
+        }
+        
+        .metric-value.error {
+            color: #ef4444;
+        }
+        
+        .metric-value.success {
+            color: #10b981;
+        }
+        
+        .logs-section {
+            background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border: 1px solid #333;
+        }
+        
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .logs-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .logs-controls input, .logs-controls select {
+            padding: 8px 12px;
+            background: #2d2d2d;
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 13px;
+            min-width: 120px;
+        }
+        
+        .logs-controls input:focus, .logs-controls select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        
+        .logs-controls button {
+            padding: 8px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .logs-controls button:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+        
+        .logs-controls button:active {
+            transform: translateY(0);
+        }
+        
+        .logs-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        
+        .logs-container {
+            background: #0d0d0d;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 12px;
+            height: 500px;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .logs-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .logs-container::-webkit-scrollbar-track {
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+        
+        .logs-container::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        
+        .logs-container::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 6px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .log-entry.new {
+            animation: highlight 2s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes highlight {
+            0% {
+                background: rgba(59, 130, 246, 0.2);
+                border-left: 3px solid #3b82f6;
+            }
+            100% {
+                background: transparent;
+                border-left: 3px solid transparent;
+            }
+        }
+        
+        .log-timestamp {
+            color: #6b7280;
+            min-width: 85px;
+            font-size: 11px;
+        }
+        
+        .log-level {
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .log-level-info { 
+            background: rgba(59, 130, 246, 0.2); 
+            color: #3b82f6; 
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        .log-level-warn { 
+            background: rgba(245, 158, 11, 0.2); 
+            color: #f59e0b; 
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        .log-level-error { 
+            background: rgba(239, 68, 68, 0.2); 
+            color: #ef4444; 
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .log-level-debug { 
+            background: rgba(107, 114, 128, 0.2); 
+            color: #6b7280; 
+            border: 1px solid rgba(107, 114, 128, 0.3);
+        }
+        
+        .log-category {
+            color: #8b5cf6;
+            min-width: 70px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .log-message {
+            color: #f9fafb;
+            flex: 1;
+            word-break: break-word;
+            line-height: 1.4;
+        }
+        
+        .log-details {
+            color: #9ca3af;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+        
+        .no-logs {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+            font-style: italic;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #9ca3af;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #374151;
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .notifications {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        .notification {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            animation: slideInRight 0.3s ease;
+            position: relative;
+        }
+        
+        .notification.error {
+            border-left: 4px solid #ef4444;
+        }
+        
+        .notification.warning {
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .notification.info {
+            border-left: 4px solid #3b82f6;
+        }
+        
+        .notification.success {
+            border-left: 4px solid #10b981;
+        }
+        
+        .notification-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .notification-message {
+            font-size: 13px;
+            color: #d1d5db;
+        }
+        
+        .notification-close {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: #9ca3af;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 2px;
+        }
+        
+        .notification-close:hover {
+            color: #f3f4f6;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #3b82f6;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .chart-title {
+            font-size: 14px;
+            color: #e0e0e0;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .memory-chart {
+            height: 60px;
+            background: linear-gradient(90deg, 
+                rgba(59, 130, 246, 0.3) 0%, 
+                rgba(59, 130, 246, 0.6) 50%, 
+                rgba(59, 130, 246, 0.9) 100%);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .memory-chart::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.3) 100%);
+        }
+        
+        .memory-chart-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .logs-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .logs-controls input, .logs-controls select, .logs-controls button {
+                width: 100%;
+            }
+            
+            .connection-status {
+                position: static;
+                margin-bottom: 10px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="connection-status" id="connection-status">
+            <span class="status-indicator status-offline" id="connection-indicator"></span>
+            <span id="connection-text">Connecting...</span>
+        </div>
+        
+        <div class="header">
+            <h1>🚀 SocialPiloat AI - Real-Time System Monitor</h1>
+            <p>Live monitoring and real-time system health dashboard</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="total-logs">0</div>
+                <div class="stat-label">Total Logs</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="error-rate">0%</div>
+                <div class="stat-label">Error Rate</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="socket-connections">0</div>
+                <div class="stat-label">Socket Connections</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="uptime-display">0s</div>
+                <div class="stat-label">Uptime</div>
+            </div>
+        </div>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <h3>
+                    <span class="status-indicator" id="server-status"></span>
+                    🖥️ Server Status
+                </h3>
+                <div class="metric">
+                    <span class="metric-label">Status</span>
+                    <span class="metric-value" id="server-status-text">Connecting...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Port</span>
+                    <span class="metric-value" id="server-port">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Uptime</span>
+                    <span class="metric-value" id="server-uptime">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Memory Usage</span>
+                    <span class="metric-value" id="server-memory">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Restart Count</span>
+                    <span class="metric-value" id="server-restarts">0</span>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">Memory Usage</div>
+                    <div class="memory-chart" id="memory-chart">
+                        <div class="memory-chart-label" id="memory-chart-label">0%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <h3>
+                    <span class="status-indicator" id="socket-status"></span>
+                    🔌 Socket.IO Status
+                </h3>
+                <div class="metric">
+                    <span class="metric-label">Server Status</span>
+                    <span class="metric-value" id="socket-server-status">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Active Connections</span>
+                    <span class="metric-value" id="socket-connections-detail">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Total Connections</span>
+                    <span class="metric-value" id="socket-total-connections">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Last Activity</span>
+                    <span class="metric-value" id="socket-last-activity">-</span>
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <h3>
+                    <span class="status-indicator" id="facebook-status"></span>
+                    📱 Facebook Integration
+                </h3>
+                <div class="metric">
+                    <span class="metric-label">Webhook Status</span>
+                    <span class="metric-value" id="facebook-webhook">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">API Status</span>
+                    <span class="metric-value" id="facebook-api">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Response Time</span>
+                    <span class="metric-value" id="facebook-response-time">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Error Count</span>
+                    <span class="metric-value" id="facebook-error-count">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Reconnect Attempts</span>
+                    <span class="metric-value" id="facebook-reconnects">0</span>
+                </div>
+            </div>
+            
+            <div class="metric-card">
+                <h3>
+                    <span class="status-indicator" id="ngrok-status"></span>
+                    🌐 ngrok Tunnel
+                </h3>
+                <div class="metric">
+                    <span class="metric-label">Tunnel Status</span>
+                    <span class="metric-value" id="ngrok-tunnel">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">URL</span>
+                    <span class="metric-value" id="ngrok-url" style="font-size: 11px; word-break: break-all;">-</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Restart Count</span>
+                    <span class="metric-value" id="ngrok-restarts">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Last Error</span>
+                    <span class="metric-value" id="ngrok-last-error" style="font-size: 11px;">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="logs-section">
+            <div class="logs-header">
+                <h3>📋 Real-Time System Logs</h3>
+                <div class="logs-stats">
+                    <span>Showing: <strong id="visible-logs">0</strong></span>
+                    <span>Filtered: <strong id="filtered-count">0</strong></span>
+                    <span>Total: <strong id="total-logs-display">0</strong></span>
+                </div>
+            </div>
+            <div class="logs-controls">
+                <input type="text" id="search-input" placeholder="🔍 Search logs in real-time..." />
+                <select id="category-filter">
+                    <option value="">All Categories</option>
+                    <option value="server">Server</option>
+                    <option value="socket">Socket.IO</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="ngrok">ngrok</option>
+                    <option value="system">System</option>
+                </select>
+                <select id="level-filter">
+                    <option value="">All Levels</option>
+                    <option value="info">Info</option>
+                    <option value="warn">Warning</option>
+                    <option value="error">Error</option>
+                    <option value="debug">Debug</option>
+                </select>
+                <button onclick="clearFilters()">🔄 Clear Filters</button>
+                <button onclick="exportLogs()">📥 Export</button>
+                <button onclick="toggleAutoScroll()" id="autoscroll-btn">⬇️ Auto-Scroll: ON</button>
+            </div>
+            <div class="logs-container" id="logs-container">
+                <div class="loading">🔄 Connecting to real-time monitoring...</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notifications" id="notifications"></div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // Real-time monitoring system
+        class RealTimeMonitor {
+            constructor() {
+                this.socket = null;
+                this.logs = [];
+                this.filteredLogs = [];
+                this.systemStatus = null;
+                this.isConnected = false;
+                this.autoScroll = true;
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 5;
+                this.notificationTimeouts = new Map();
+                
+                this.init();
+            }
+            
+            init() {
+                this.connect();
+                this.setupEventListeners();
+                this.startPeriodicUpdates();
+            }
+            
+            connect() {
+                console.log('🔌 Connecting to real-time monitoring...');
+                
+                this.socket = io('/admin', {
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionDelay: 1000,
+                    reconnectionAttempts: this.maxReconnectAttempts,
+                });
+                
+                this.socket.on('connect', () => {
+                    console.log('✅ Connected to real-time monitoring');
+                    this.isConnected = true;
+                    this.reconnectAttempts = 0;
+                    this.updateConnectionStatus('Connected', 'online');
+                    this.showNotification('Connected', 'Real-time monitoring connected', 'success');
+                });
+                
+                this.socket.on('disconnect', (reason) => {
+                    console.log('❌ Disconnected from real-time monitoring:', reason);
+                    this.isConnected = false;
+                    this.updateConnectionStatus('Disconnected', 'offline');
+                    this.showNotification('Disconnected', 'Real-time monitoring disconnected: ' + reason, 'error');
+                });
+                
+                this.socket.on('reconnect_attempt', (attemptNumber) => {
+                    console.log('🔄 Reconnection attempt:', attemptNumber);
+                    this.updateConnectionStatus('Reconnecting... (' + attemptNumber + '/' + this.maxReconnectAttempts + ')', 'warning');
+                });
+                
+                this.socket.on('system-status', (data) => {
+                    console.log('📊 Received system status:', data);
+                    this.updateSystemStatus(data);
+                });
+                
+                this.socket.on('system-logs', (data) => {
+                    console.log('📋 Received system logs:', data);
+                    this.updateLogs(data.logs);
+                });
+                
+                this.socket.on('new-log', (data) => {
+                    console.log('🆕 New log received:', data);
+                    this.addNewLog(data.log);
+                });
+                
+                this.socket.on('socket-connection', (data) => {
+                    console.log('🔌 Socket connection event:', data);
+                    this.updateSocketConnection(data);
+                });
+                
+                this.socket.on('activity', (data) => {
+                    console.log('⚡ Activity event:', data);
+                    this.handleActivity(data);
+                });
+                
+                this.socket.on('error', (data) => {
+                    console.error('❌ Error event:', data);
+                    this.handleError(data);
+                });
+            }
+            
+            setupEventListeners() {
+                // Filter controls
+                document.getElementById('search-input').addEventListener('input', (e) => {
+                    this.filterLogs();
+                });
+                
+                document.getElementById('category-filter').addEventListener('change', (e) => {
+                    this.filterLogs();
+                });
+                
+                document.getElementById('level-filter').addEventListener('change', (e) => {
+                    this.filterLogs();
+                });
+            }
+            
+            startPeriodicUpdates() {
+                // Update uptime every second
+                setInterval(() => {
+                    this.updateUptime();
+                }, 1000);
+                
+                // Update connection status indicator
+                setInterval(() => {
+                    if (this.isConnected) {
+                        this.updateConnectionStatus('Connected', 'online');
+                    }
+                }, 2000);
+            }
+            
+            updateConnectionStatus(text, status) {
+                const indicator = document.getElementById('connection-indicator');
+                const textEl = document.getElementById('connection-text');
+                
+                indicator.className = 'status-indicator status-' + status;
+                textEl.textContent = text;
+            }
+            
+            updateSystemStatus(data) {
+                this.systemStatus = data.status;
+                
+                // Update server status
+                this.updateServerStatus(data);
+                
+                // Update socket status
+                this.updateSocketStatus(data);
+                
+                // Update Facebook status
+                this.updateFacebookStatus(data);
+                
+                // Update ngrok status
+                this.updateNgrokStatus(data);
+                
+                // Update stats
+                this.updateStats(data);
+            }
+            
+            updateServerStatus(data) {
+                const status = data.status || {};
+                const serverStatus = status.server || {};
+                const memory = data.memory || { used: 0, total: 0, percentage: 0 };
+                
+                // Server status indicator
+                const serverIndicator = document.getElementById('server-status');
+                const serverStatusText = document.getElementById('server-status-text');
+                
+                serverIndicator.className = 'status-indicator status-online';
+                serverStatusText.textContent = 'Online';
+                serverStatusText.className = 'metric-value success';
+                
+                // Server metrics with null checking
+                document.getElementById('server-port').textContent = serverStatus.port || '7070';
+                document.getElementById('server-uptime').textContent = this.formatUptime(data.uptime || 0);
+                document.getElementById('server-restarts').textContent = serverStatus.restartCount || 0;
+                
+                // Memory usage with null checking
+                const memoryUsed = memory && memory.used ? (memory.used / 1024 / 1024).toFixed(1) : '0.0';
+                const memoryTotal = memory && memory.total ? (memory.total / 1024 / 1024).toFixed(1) : '0.0';
+                const memoryPercentage = memory && memory.percentage ? memory.percentage.toFixed(1) : '0.0';
+                
+                document.getElementById('server-memory').textContent = 
+                    `${memoryUsed}MB / ${memoryTotal}MB (${memoryPercentage}%)`;
+                
+                // Memory chart
+                const memoryChart = document.getElementById('memory-chart');
+                const memoryChartLabel = document.getElementById('memory-chart-label');
+                
+                memoryChart.style.background = `linear-gradient(90deg, 
+                    rgba(59, 130, 246, 0.3) 0%, 
+                    rgba(59, 130, 246, 0.6) ${memoryPercentage}%, 
+                    rgba(59, 130, 246, 0.9) ${memoryPercentage}%, 
+                    rgba(255, 0, 0, 0.6) 100%)`;
+                
+                memoryChartLabel.textContent = memoryPercentage + '%';
+                
+                // Memory warning
+                if (memoryPercentage > 80) {
+                    document.getElementById('server-memory').className = 'metric-value error';
+                } else if (memoryPercentage > 60) {
+                    document.getElementById('server-memory').className = 'metric-value warning';
+                } else {
+                    document.getElementById('server-memory').className = 'metric-value success';
+                }
+            }
+            
+            updateSocketStatus(data) {
+                const status = data.status || {};
+                const socketStatus = status.socket || {};
+                
+                // Socket status indicator
+                const socketIndicator = document.getElementById('socket-status');
+                const socketServerStatus = document.getElementById('socket-server-status');
+                
+                if (socketStatus.server && socketStatus.server.running) {
+                    socketIndicator.className = 'status-indicator status-online';
+                    socketServerStatus.textContent = 'Running';
+                    socketServerStatus.className = 'metric-value success';
+                } else {
+                    socketIndicator.className = 'status-indicator status-offline';
+                    socketServerStatus.textContent = 'Stopped';
+                    socketServerStatus.className = 'metric-value error';
+                }
+                
+                // Socket metrics
+                const connections = socketStatus.connections || [];
+                document.getElementById('socket-connections-detail').textContent = 
+                    (socketStatus.server && socketStatus.server.connections || 0) + ' active';
+                document.getElementById('socket-total-connections').textContent = 
+                    connections.length;
+                
+                // Last activity
+                if (connections.length > 0) {
+                    const lastActivity = connections.reduce((latest, conn) => {
+                        return new Date(conn.lastActivity) > new Date(latest) ? conn.lastActivity : latest;
+                    }, connections[0].lastActivity);
+                    
+                    document.getElementById('socket-last-activity').textContent = 
+                        this.formatTimeAgo(lastActivity);
+                } else {
+                    document.getElementById('socket-last-activity').textContent = 'No activity';
+                }
+            }
+            
+            updateFacebookStatus(data) {
+                const status = data.status || {};
+                const facebookStatus = status.facebook || {};
+                
+                // Facebook status indicator
+                const fbIndicator = document.getElementById('facebook-status');
+                
+                if (facebookStatus.webhook && facebookStatus.webhook.connected && 
+                    facebookStatus.api && facebookStatus.api.status === 'connected') {
+                    fbIndicator.className = 'status-indicator status-online';
+                } else if (facebookStatus.api && facebookStatus.api.status === 'error') {
+                    fbIndicator.className = 'status-indicator status-offline';
+                } else {
+                    fbIndicator.className = 'status-indicator status-warning';
+                }
+                
+                // Facebook metrics
+                const webhookStatus = facebookStatus.webhook || {};
+                const apiStatus = facebookStatus.api || {};
+                
+                document.getElementById('facebook-webhook').textContent = 
+                    webhookStatus.connected ? 'Connected' : 'Disconnected';
+                document.getElementById('facebook-api').textContent = 
+                    apiStatus.status ? apiStatus.status.charAt(0).toUpperCase() + apiStatus.status.slice(1) : 'Unknown';
+                
+                // Response time
+                if (apiStatus.responseTime) {
+                    document.getElementById('facebook-response-time').textContent = 
+                        apiStatus.responseTime + 'ms';
+                } else {
+                    document.getElementById('facebook-response-time').textContent = '-';
+                }
+                
+                document.getElementById('facebook-error-count').textContent = 
+                    webhookStatus.errorCount || 0;
+                document.getElementById('facebook-reconnects').textContent = 
+                    webhookStatus.reconnectAttempts || 0;
+            }
+            
+            updateNgrokStatus(data) {
+                const status = data.status || {};
+                const ngrokStatus = status.ngrok || {};
+                
+                // ngrok status indicator
+                const ngrokIndicator = document.getElementById('ngrok-status');
+                
+                if (ngrokStatus.tunnel && ngrokStatus.tunnel.active) {
+                    ngrokIndicator.className = 'status-indicator status-online';
+                } else if (ngrokStatus.tunnel && ngrokStatus.tunnel.lastError) {
+                    ngrokIndicator.className = 'status-indicator status-offline';
+                } else {
+                    ngrokIndicator.className = 'status-indicator status-warning';
+                }
+                
+                // ngrok metrics
+                const tunnelStatus = ngrokStatus.tunnel || {};
+                
+                document.getElementById('ngrok-tunnel').textContent = 
+                    tunnelStatus.active ? 'Active' : 'Inactive';
+                document.getElementById('ngrok-url').textContent = 
+                    tunnelStatus.url || 'Not established';
+                document.getElementById('ngrok-restarts').textContent = 
+                    tunnelStatus.restartCount || 0;
+                document.getElementById('ngrok-last-error').textContent = 
+                    tunnelStatus.lastError || 'No errors';
+            }
+            
+            updateStats(data) {
+                // Update statistics
+                const status = data.status || {};
+                const stats = status.stats || {};
+                const socketStatus = status.socket || {};
+                const socketServer = socketStatus.server || {};
+                
+                document.getElementById('total-logs').textContent = stats.totalLogs || this.logs.length;
+                document.getElementById('error-rate').textContent = (stats.errorRate || 0).toFixed(1) + '%';
+                document.getElementById('socket-connections').textContent = socketServer.connections || 0;
+            }
+            
+            updateUptime() {
+                if (this.systemStatus && this.systemStatus.server) {
+                    const uptime = this.systemStatus.server.uptime / 1000; // Convert to seconds
+                    document.getElementById('uptime-display').textContent = this.formatUptime(uptime);
+                }
+            }
+            
+            updateSocketConnection(data) {
+                // Handle socket connection events
+                const message = data.event === 'connected' ? 
+                    `Socket ${data.socketId} connected` : 
+                    `Socket ${data.socketId} disconnected (${data.reason})`;
+                
+                this.showNotification(
+                    'Socket.IO Event',
+                    message,
+                    data.event === 'connected' ? 'success' : 'warning'
+                );
+            }
+            
+            handleActivity(data) {
+                // Handle activity events
+                let message = '';
+                switch (data.type) {
+                    case 'conversation-join':
+                        message = `User joined conversation ${data.conversationId}`;
+                        break;
+                    case 'conversation-leave':
+                        message = `User left conversation ${data.conversationId}`;
+                        break;
+                    default:
+                        message = `Activity: ${data.type}`;
+                }
+                
+                this.showNotification('Activity', message, 'info');
+            }
+            
+            handleError(data) {
+                // Handle error events
+                this.showNotification(
+                    'System Error',
+                    data.error || 'Unknown error occurred',
+                    'error'
+                );
+            }
+            
+            updateLogs(logs) {
+                this.logs = logs || [];
+                this.filterLogs();
+            }
+            
+            addNewLog(log) {
+                // Add new log to the beginning
+                this.logs.unshift(log);
+                
+                // Keep only last 1000 logs in memory
+                if (this.logs.length > 1000) {
+                    this.logs = this.logs.slice(0, 1000);
+                }
+                
+                // Filter and display
+                this.filterLogs();
+                
+                // Show notification for important logs
+                if (log.level === 'error') {
+                    this.showNotification(
+                        'System Error',
+                        `[${log.category.toUpperCase()}] ${log.message}`,
+                        'error'
+                    );
+                } else if (log.level === 'warn') {
+                    this.showNotification(
+                        'System Warning',
+                        `[${log.category.toUpperCase()}] ${log.message}`,
+                        'warning'
+                    );
+                }
+            }
+            
+            filterLogs() {
+                const searchTerm = document.getElementById('search-input').value.toLowerCase();
+                const categoryFilter = document.getElementById('category-filter').value;
+                const levelFilter = document.getElementById('level-filter').value;
+                
+                this.filteredLogs = this.logs.filter(log => {
+                    if (searchTerm && !log.message.toLowerCase().includes(searchTerm)) return false;
+                    if (categoryFilter && log.category !== categoryFilter) return false;
+                    if (levelFilter && log.level !== levelFilter) return false;
+                    return true;
+                });
+                
+                this.renderLogs();
+                this.updateLogStats();
+            }
+            
+            renderLogs() {
+                const container = document.getElementById('logs-container');
+                
+                if (this.filteredLogs.length === 0) {
+                    container.innerHTML = '<div class="no-logs">No logs match your filters</div>';
+                    return;
+                }
+                
+                container.innerHTML = this.filteredLogs.map((log, index) => {
+                    const isNew = index === 0; // Mark the newest log
+                    return `
+                        <div class="log-entry ${isNew ? 'new' : ''}">
+                            <span class="log-timestamp">${this.formatTime(log.timestamp)}</span>
+                            <span class="log-level log-level-${log.level}">[${log.level.toUpperCase()}]</span>
+                            <span class="log-category">[${log.category.toUpperCase()}]</span>
+                            <span class="log-message">${this.escapeHtml(log.message)}</span>
+                        </div>
+                        ${log.details ? `<div class="log-details">${this.formatDetails(log.details)}</div>` : ''}
+                    `;
+                }).join('');
+                
+                // Auto-scroll to bottom if enabled
+                if (this.autoScroll) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+            
+            updateLogStats() {
+                document.getElementById('visible-logs').textContent = this.filteredLogs.length;
+                document.getElementById('filtered-count').textContent = this.logs.length - this.filteredLogs.length;
+                document.getElementById('total-logs-display').textContent = this.logs.length;
+            }
+            
+            formatTime(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString();
+            }
+            
+            formatTimeAgo(timestamp) {
+                const date = new Date(timestamp);
+                const now = new Date();
+                const diff = now - date;
+                
+                if (diff < 1000) return 'Just now';
+                if (diff < 60000) return Math.floor(diff / 1000) + 's ago';
+                if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+                if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+                
+                return date.toLocaleDateString();
+            }
+            
+            formatUptime(seconds) {
+                const hours = Math.floor(seconds / 3600);
+                const minutes = Math.floor((seconds % 3600) / 60);
+                const secs = Math.floor(seconds % 60);
+                
+                if (hours > 0) return `${hours}h ${minutes}m`;
+                if (minutes > 0) return `${minutes}m ${secs}s`;
+                return `${secs}s`;
+            }
+            
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            formatDetails(details) {
+                if (typeof details === 'object') {
+                    return JSON.stringify(details, null, 2);
+                }
+                return String(details);
+            }
+            
+            showNotification(title, message, type = 'info') {
+                const notifications = document.getElementById('notifications');
+                const notification = document.createElement('div');
+                notification.className = `notification ${type}`;
+                
+                const icons = {
+                    success: '✅',
+                    error: '❌',
+                    warning: '⚠️',
+                    info: 'ℹ️'
+                };
+                
+                notification.innerHTML = `
+                    <div class="notification-title">
+                        ${icons[type]} ${title}
+                    </div>
+                    <div class="notification-message">${message}</div>
+                    <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+                `;
+                
+                notifications.appendChild(notification);
+                
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 5000);
+            }
+        }
+        
+        // Global functions
+        function clearFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('category-filter').value = '';
+            document.getElementById('level-filter').value = '';
+            if (window.monitor) {
+                window.monitor.filterLogs();
+            }
+        }
+        
+        function exportLogs() {
+            if (!window.monitor || window.monitor.logs.length === 0) {
+                alert('No logs to export');
+                return;
+            }
+            
+            const dataStr = JSON.stringify(window.monitor.logs, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `system-logs-${new Date().toISOString().slice(0, 19).replace(':', '-')}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function toggleAutoScroll() {
+            if (window.monitor) {
+                window.monitor.autoScroll = !window.monitor.autoScroll;
+                const btn = document.getElementById('autoscroll-btn');
+                btn.textContent = window.monitor.autoScroll ? '⬇️ Auto-Scroll: ON' : '⬇️ Auto-Scroll: OFF';
+            }
+        }
+        
+        // Initialize the monitor
+        window.monitor = new RealTimeMonitor();
+        
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (window.monitor && window.monitor.socket) {
+                if (document.hidden) {
+                    console.log('📄 Page hidden, reducing update frequency');
+                } else {
+                    console.log('📄 Page visible, resuming normal updates');
+                    // Request fresh data when page becomes visible
+                    window.monitor.socket.emit('request-update');
+                }
+            }
+        });
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            if (window.monitor && window.monitor.socket) {
+                window.monitor.socket.disconnect();
+            }
+        });
+        
+        console.log('🚀 Real-time monitoring system initialized');
+    </script>
+</body>
+</html>
