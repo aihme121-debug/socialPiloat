@@ -27,8 +27,8 @@ export async function GET(request: Request) {
     console.log('User data:', JSON.stringify(user, null, 2));
 
     if (!user?.businessId) {
-      console.log('No business ID found for user');
-      return NextResponse.json({ error: 'No business associated' }, { status: 400 });
+      console.log('No business ID found for user, returning empty accounts');
+      return NextResponse.json({ accounts: [], businessId: null });
     }
 
     // Fetch social accounts for the business

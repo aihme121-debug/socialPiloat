@@ -19,36 +19,9 @@ export async function GET(
     const url = `https://graph.facebook.com/v18.0/${params.id}/messages?access_token=${encodeURIComponent(ctx.accessToken as string)}`
     const res = await fetch(url)
     const data = await res.json()
-    
-    // If Facebook API fails, return mock messages for testing
     if (!res.ok || data.error) {
-      console.log('Facebook messages API failed, returning mock data:', data?.error?.message);
-      const mockMessages = [
-        {
-          id: 'mock_message_1',
-          message: 'Hello, I have a question about your services.',
-          from: { id: 'customer_1', name: 'John Doe' },
-          created_time: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-          attachments: []
-        },
-        {
-          id: 'mock_message_2',
-          message: 'Of course! I\'d be happy to help. What would you like to know?',
-          from: { id: 'business_1', name: 'Your Business' },
-          created_time: new Date(Date.now() - 1000 * 60 * 25).toISOString(), // 25 minutes ago
-          attachments: []
-        },
-        {
-          id: 'mock_message_3',
-          message: 'What are your pricing plans?',
-          from: { id: 'customer_1', name: 'John Doe' },
-          created_time: new Date(Date.now() - 1000 * 60 * 20).toISOString(), // 20 minutes ago
-          attachments: []
-        }
-      ];
-      return NextResponse.json({ messages: mockMessages });
+      return NextResponse.json({ error: data?.error?.message || 'Facebook API error' }, { status: 502 })
     }
-    
     return NextResponse.json({ messages: data.data || [] })
   } catch (err) {
     console.error('Facebook messages error:', err)

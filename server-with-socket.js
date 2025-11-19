@@ -1,11 +1,11 @@
 const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
-const { initializeSocketServer } = require('./dist/lib/socket-server');
+const { initializeSocket } = require('./socket-server');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
-const port = parseInt(process.env.PORT || '3000', 10);
+const port = parseInt(process.env.PORT || '7070', 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -23,7 +23,7 @@ app.prepare().then(() => {
   });
 
   // Initialize Socket.io with the HTTP server
-  initializeSocketServer(server);
+  initializeSocket(server);
 
   server
     .once('error', (err) => {

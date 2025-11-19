@@ -1,5 +1,6 @@
 const { Server: SocketIOServer } = require('socket.io');
 const { Server: HTTPServer } = require('http');
+const { systemMonitor } = require('../system/system-monitor-js');
 
 /**
  * Socket.IO server integration for Next.js
@@ -37,10 +38,12 @@ function initializeSocketIO(httpServer) {
     console.log('🔌 Admin dashboard connected:', socket.id);
     
     // Send initial system status
+    const status = systemMonitor.getSystemStatus();
     socket.emit('system-status', {
       status: 'connected',
       timestamp: new Date().toISOString(),
-      socketId: socket.id
+      socketId: socket.id,
+      systemStatus: status
     });
 
     // Handle disconnection
@@ -50,18 +53,19 @@ function initializeSocketIO(httpServer) {
 
     // Handle client requests
     socket.on('get-system-status', () => {
-      // This will be implemented to get actual system status
+      const status = systemMonitor.getSystemStatus();
       socket.emit('system-status', {
         status: 'online',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        systemStatus: status
       });
     });
 
     // Handle log requests
     socket.on('get-system-logs', () => {
-      // This will be implemented to get recent logs
+      const logs = systemMonitor.getSystemLogs({ limit: 100 });
       socket.emit('system-logs', {
-        logs: [],
+        logs: logs,
         timestamp: new Date().toISOString()
       });
     });
@@ -70,10 +74,13 @@ function initializeSocketIO(httpServer) {
   // Set up periodic status updates
   const statusInterval = setInterval(() => {
     if (adminNamespace) {
+      const status = systemMonitor.getSystemStatus();
+      console.log('📡 Broadcasting system status:', JSON.stringify(status, null, 2));
       adminNamespace.emit('system-status', {
         status: 'online',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        systemStatus: status
       });
     }
   }, 5000); // Every 5 seconds

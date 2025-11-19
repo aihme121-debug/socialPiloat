@@ -21,6 +21,14 @@ model Tenant {
   businesses  Business[]
   teamInvitations TeamInvitation[]
   
+  // Facebook Integration
+  facebookAccounts FacebookAccount[]
+  facebookPages    FacebookPage[]
+  facebookPageInsights FacebookPageInsight[]
+  facebookWebhookEvents FacebookWebhookEvent[]
+  facebookActionsLog FacebookActionsLog[]
+  facebookTokenRefreshQueue FacebookTokenRefreshQueue[]
+  
   @@map("tenants")
   @@index([subdomain])
   @@index([planType])
@@ -51,6 +59,11 @@ model User {
   teamInvitationsSent TeamInvitation[] @relation("UserInvitations")
   notificationSettings NotificationSettings?
   privacySettings PrivacySettings?
+  
+  // Facebook Integration
+  facebookAccounts FacebookAccount[]
+  facebookPages    FacebookPage[]
+  facebookActionsLog FacebookActionsLog[]
   
   @@map("users")
   @@index([tenantId])
@@ -86,6 +99,10 @@ model Business {
   teamInvitations TeamInvitation[]
   automationRules AutomationRule[]
   conversations Conversation[]
+  
+  // Facebook Integration
+  facebookAccounts FacebookAccount[]
+  facebookPages    FacebookPage[]
   
   @@map("businesses")
   @@index([tenantId])
@@ -616,6 +633,262 @@ enum AutomationTriggerType {
   CONDITION_BASED
   
   @@map("automation_trigger_type")
+}
+
+// Facebook Integration Models
+model FacebookAccount {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  tenantId    String   @map("tenant_id")
+  businessId  String   @map("business_id")
+  
+  // Facebook user information
+  fbUserId        String  @map("fb_user_id")
+  fbUserName      String  @map("fb_user_name")
+  fbUserEmail     String? @map("fb_user_email")
+  fbUserPictureUrl String? @map("fb_user_picture_url")
+  
+  // Account status and metadata
+  isActive    Boolean   @default(true) @map("is_active")
+  lastSyncAt  DateTime? @map("last_sync_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  pages    FacebookPage[]
+  
+  @@unique([userId, fbUserId])
+  @@index([tenantId])
+  @@index([businessId])
+  @@index([fbUserId])
+  @@index([isActive])
+  @@map("facebook_accounts")
+}
+
+model FacebookPage {
+  id          String   @id @default(uuid())
+  facebookAccountId String @map("facebook_account_id")
+  userId      String   @map("user_id")
+  tenantId    String   @map("tenant_id")
+  businessId  String   @map("business_id")
+  
+  // Page information
+  pageId               String  @map("page_id")
+  pageName             String  @map("page_name")
+  pageCategory         String? @map("page_category")
+  pagePictureUrl       String? @map("page_picture_url")
+  pageAccessTokenEncrypted String @map("page_access_token_encrypted") // Encrypted token
+  
+  // Token metadata
+  tokenExpiresAt   DateTime? @map("token_expires_at")
+  tokenScopes      String[]  @map("token_scopes") // Array of granted scopes
+  
+  // Webhook subscription status
+  webhookSubscribed     Boolean   @default(false) @map("webhook_subscribed")
+  webhookSubscribedAt   DateTime? @map("webhook_subscribed_at")
+  webhookSubscriptionId String?   @map("webhook_subscription_id")
+  
+  // Connection status
+  connectionStatus        FacebookConnectionStatus @default(CONNECTED) @map("connection_status")
+  lastErrorMessage        String? @map("last_error_message")
+  lastSuccessfulConnection DateTime? @map("last_successful_connection")
+  
+  // Rate limiting
+  rateLimitRemaining Integer @default(200) @map("rate_limit_remaining")
+  rateLimitResetAt   DateTime? @map("rate_limit_reset_at")
+  
+  // Timestamps
+  connectedAt  DateTime  @default(now()) @map("connected_at")
+  lastUsedAt   DateTime? @map("last_used_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  
+  // Relations
+  facebookAccount FacebookAccount @relation(fields: [facebookAccountId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  business        Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  insights        FacebookPageInsight[]
+  webhookEvents   FacebookWebhookEvent[]
+  actionsLog      FacebookActionsLog[]
+  tokenRefreshQueue FacebookTokenRefreshQueue[]
+  
+  @@unique([facebookAccountId, pageId])
+  @@index([userId])
+  @@index([tenantId])
+  @@index([businessId])
+  @@index([pageId])
+  @@index([connectionStatus])
+  @@index([webhookSubscribed])
+  @@index([tokenExpiresAt])
+  @@map("facebook_pages")
+}
+
+model FacebookPageInsight {
+  id          String   @id @default(uuid())
+  facebookPageId String @map("facebook_page_id")
+  tenantId    String   @map("tenant_id")
+  
+  // Insight metrics
+  metricName   String  @map("metric_name")
+  metricValue  Decimal? @map("metric_value") @db.Decimal(15,2)
+  metricPeriod String  @default("day") @map("metric_period") // day, week, days_28
+  
+  // Date range
+  dateStart DateTime @db.Date @map("date_start")
+  dateEnd   DateTime @db.Date @map("date_end")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  facebookPage FacebookPage @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  @@index([facebookPageId])
+  @@index([tenantId])
+  @@index([metricName])
+  @@index([dateStart])
+  @@unique([facebookPageId, metricName, dateStart, metricPeriod])
+  @@map("facebook_page_insights")
+}
+
+model FacebookWebhookEvent {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  facebookPageId String? @map("facebook_page_id")
+  
+  // Webhook event data
+  eventType    String @map("event_type") // message, comment, post, reaction, etc.
+  eventObject  String @map("event_object") // page, user, post, comment, etc.
+  eventObjectId String @map("event_object_id")
+  
+  // Raw webhook payload (excluding sensitive data)
+  payloadJson Json @map("payload_json") @db.Json
+  
+  // Processing status
+  processed     Boolean @default(false)
+  processedAt   DateTime? @map("processed_at")
+  errorMessage  String? @map("error_message")
+  
+  // Security
+  signatureVerified Boolean @default(false) @map("signature_verified")
+  signatureVersion  String? @map("signature_version")
+  
+  // Timestamps
+  receivedAt DateTime @default(now()) @map("received_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  facebookPage FacebookPage? @relation(fields: [facebookPageId], references: [id], onDelete: SetNull)
+  
+  @@index([tenantId])
+  @@index([facebookPageId])
+  @@index([eventType])
+  @@index([eventObjectId])
+  @@index([processed])
+  @@index([receivedAt])
+  @@map("facebook_webhook_events")
+}
+
+model FacebookActionsLog {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  userId      String   @map("user_id")
+  facebookPageId String @map("facebook_page_id")
+  
+  // Action details
+  actionType        String  @map("action_type") // send_message, reply_comment, create_post, etc.
+  actionTargetId    String? @map("action_target_id") // ID of the target (message_id, comment_id, etc.)
+  actionTargetType  String? @map("action_target_type") // message, comment, post, etc.
+  
+  // Request details (excluding sensitive data)
+  requestMethod      String? @map("request_method")
+  requestEndpoint    String? @map("request_endpoint")
+  requestPayloadSize Int? @map("request_payload_size")
+  
+  // Response details
+  responseStatus     Int? @map("response_status")
+  responseErrorMessage String? @map("response_error_message")
+  responseTimeMs     Int? @map("response_time_ms")
+  
+  // Rate limiting
+  rateLimitRemaining Int? @map("rate_limit_remaining")
+  rateLimitResetAt   DateTime? @map("rate_limit_reset_at")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facebookPage FacebookPage @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+  @@index([userId])
+  @@index([facebookPageId])
+  @@index([actionType])
+  @@index([createdAt])
+  @@index([actionTargetId])
+  @@map("facebook_actions_log")
+}
+
+model FacebookTokenRefreshQueue {
+  id          String   @id @default(uuid())
+  facebookPageId String @map("facebook_page_id")
+  tenantId    String   @map("tenant_id")
+  
+  // Refresh status
+  status   FacebookTokenRefreshStatus @default(PENDING) @map("status")
+  priority Int @default(1)
+  
+  // Retry logic
+  retryCount     Int @default(0) @map("retry_count")
+  maxRetries     Int @default(3) @map("max_retries")
+  lastErrorMessage String? @map("last_error_message")
+  
+  // Scheduling
+  scheduledAt DateTime @default(now()) @map("scheduled_at")
+  processedAt DateTime? @map("processed_at")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  facebookPage FacebookPage @relation(fields: [facebookPageId], references: [id], onDelete: Cascade)
+  
+  @@index([tenantId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([facebookPageId])
+  @@index([status, scheduledAt])
+  @@map("facebook_token_refresh_queue")
+}
+
+// Enums
+enum FacebookConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+  NEEDS_REAUTH
+  
+  @@map("facebook_connection_status")
+}
+
+enum FacebookTokenRefreshStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  
+  @@map("facebook_token_refresh_status")
 }
 
 enum AutomationStatus {

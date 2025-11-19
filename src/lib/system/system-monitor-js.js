@@ -104,6 +104,10 @@ class SystemMonitor {
           percentage: 0,
         },
       },
+      database: {
+        status: 'disconnected',
+        lastConnection: new Date().toISOString(),
+      },
     };
   }
 
@@ -135,6 +139,7 @@ class SystemMonitor {
       percentage: (memUsage.heapUsed / memUsage.heapTotal) * 100,
     };
     this.status.server.uptime = Date.now() - this.startTime;
+    this.status.socket.server.uptime = this.status.server.uptime;
 
     // Broadcast real-time update
     this.broadcastEvent('system-status', {
@@ -300,6 +305,7 @@ class SystemMonitor {
    * Socket.IO server monitoring
    */
   updateSocketServerStatus(running, connections) {
+    console.log(`🔧 DEBUG: updateSocketServerStatus called with running=${running}, connections=${connections}`);
     const wasRunning = this.status.socket.server.running;
     this.status.socket.server.running = running;
     this.status.socket.server.connections = connections;
@@ -326,6 +332,13 @@ class SystemMonitor {
         });
       }
     }
+  }
+
+  /**
+   * Socket.IO status update (alias for updateSocketServerStatus)
+   */
+  updateSocketStatus(running, connections) {
+    return this.updateSocketServerStatus(running, connections);
   }
 
   /**
@@ -437,6 +450,7 @@ class SystemMonitor {
    * Update server port
    */
   updateServerPort(port) {
+    console.log(`🔧 DEBUG: updateServerPort called with port=${port}`);
     this.status.server.port = port;
     this.status.socket.server.port = port;
     this.logInfo('server', 'Server port updated', { port });
@@ -444,6 +458,84 @@ class SystemMonitor {
     // Broadcast port change event
     this.broadcastEvent('server-port', {
       port,
+    });
+  }
+
+  /**
+   * Update database connection status
+   */
+  updateDatabaseStatus(status, error) {
+    this.status.database.status = status;
+    this.status.database.lastConnection = new Date().toISOString();
+    
+    if (error) {
+      this.status.database.error = error;
+      this.logError('database', 'Database connection failed', new Error(error));
+    } else {
+      delete this.status.database.error;
+      this.logInfo('database', `Database ${status}`);
+    }
+
+    // Broadcast database status change
+    this.broadcastEvent('database-status', {
+      status,
+      error,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Comprehensive Facebook status update
+   */
+  updateFacebookStatus(updates) {
+    this.status.facebook = { ...this.status.facebook, ...updates };
+    this.logInfo('facebook', 'Facebook status updated', updates);
+    
+    if (updates && updates.webhook) {
+      this.broadcastEvent('facebook-webhook', { connected: updates.webhook.connected });
+    }
+    if (updates && updates.api) {
+      this.broadcastEvent('facebook-api', updates.api);
+    }
+  }
+
+  /**
+   * System stats summary
+   */
+  getSystemStats() {
+    const recentLogs = this.getSystemLogs({ limit: 1000 });
+    const errorLogs = recentLogs.filter((log) => log.level === LogLevel.ERROR);
+    return {
+      totalLogs: this.logs.length,
+      errorRate: recentLogs.length ? (errorLogs.length / recentLogs.length) * 100 : 0,
+      facebookConnectionRate: this.status.facebook.webhook.connected ? 100 : 0,
+      socketConnectionRate: this.status.socket.server.running ? 100 : 0,
+      ngrokUptime: this.status.ngrok.tunnel.active
+        ? Date.now() - new Date(this.status.ngrok.tunnel.establishedAt || 0).getTime()
+        : 0,
+    };
+  }
+
+  /**
+   * Update database connection status
+   */
+  updateDatabaseStatus(status, error) {
+    this.status.database.status = status;
+    this.status.database.lastConnection = new Date().toISOString();
+    
+    if (error) {
+      this.status.database.error = error;
+      this.logError('database', 'Database connection failed', new Error(error));
+    } else {
+      delete this.status.database.error;
+      this.logInfo('database', `Database ${status}`);
+    }
+
+    // Broadcast database status change
+    this.broadcastEvent('database-status', {
+      status,
+      error,
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -510,7 +602,11 @@ class SystemMonitor {
   }
 }
 
-// Create singleton instance
-const systemMonitor = new SystemMonitor();
+// Create/reuse singleton instance across module boundaries
+const globalRef = typeof globalThis !== 'undefined' ? globalThis : global;
+if (!globalRef.systemMonitor) {
+  globalRef.systemMonitor = new SystemMonitor();
+}
+const systemMonitor = globalRef.systemMonitor;
 
 module.exports = { systemMonitor };

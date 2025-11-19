@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { systemMonitor, SystemLogEntry } from './system-monitor';
+import { systemMonitor } from './system-monitor';
+import { SystemLogEntry } from './system-monitor-realtime';
 import { logger } from '@/lib/logging/logger-service';
 
 export interface LogRotationConfig {

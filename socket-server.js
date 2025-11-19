@@ -1,18 +1,29 @@
 const { Server } = require('socket.io');
+const { systemMonitor } = require('./dist/lib/system/system-monitor');
 
 let io = null;
 
 const initializeSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      origin: process.env.NEXT_PUBLIC_APP_URL || ['http://localhost:3000', 'http://localhost:7070'],
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    path: '/socket.io',
+    serveClient: true
   });
 
   io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
+    
+    // Update system monitor with new connection
+    systemMonitor.updateSocketServerStatus(true, io.engine.clientsCount);
+    systemMonitor.addSocketConnection({
+      id: socket.id,
+      userAgent: socket.handshake.headers['user-agent'],
+      ip: socket.handshake.address
+    });
 
     socket.on('join-conversation', (conversationId) => {
       socket.join(conversationId);
@@ -34,6 +45,9 @@ const initializeSocket = (server) => {
 
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.id);
+      // Update system monitor with disconnection
+      systemMonitor.removeSocketConnection(socket.id);
+      systemMonitor.updateSocketServerStatus(true, io.engine.clientsCount);
     });
   });
 

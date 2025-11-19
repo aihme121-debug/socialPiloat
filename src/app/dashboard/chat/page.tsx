@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useBusiness } from '@/hooks/use-business';
 import { ProtectedRoute } from '@/components/auth/protected-route';
@@ -8,6 +8,7 @@ import { DashboardNav } from '@/components/dashboard/dashboard-nav';
 import { EnhancedChat } from '@/components/chat/EnhancedChat';
 import { ConversationList } from '@/components/chat/ConversationList';
 import { Card } from '@/components/ui/card';
+import { io } from 'socket.io-client';
 
 interface Message {
   id: string;
@@ -43,6 +44,10 @@ function ChatInboxContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [messageStatuses, setMessageStatuses] = useState<Map<string, string>>(new Map());
+  const [liveMessagesByConversation, setLiveMessagesByConversation] = useState<Record<string, Message[]>>({});
+  const [participantToConversation, setParticipantToConversation] = useState<Record<string, string>>({});
+  const selectedConversationRef = useRef<string>('');
+  const participantToConversationRef = useRef<Record<string, string>>({});
 
   // Fetch conversations
   useEffect(() => {
@@ -50,85 +55,76 @@ function ChatInboxContent() {
 
     const fetchConversations = async () => {
       try {
-        const res = await fetch('/api/facebook/conversations');
-        if (!res.ok) {
-          console.log('API failed, using mock conversations');
-          const mockConversations: Conversation[] = [
-            {
-              id: 'mock_conversation_1',
+        const liveRes = await fetch('/api/admin/facebook/messages?limit=50', { cache: 'no-store' });
+        if (liveRes.ok) {
+          const liveData = await liveRes.json();
+          const msgs: any[] = Array.isArray(liveData.messages) ? liveData.messages : [];
+          const byConv: Record<string, Message[]> = {};
+          const mapPID: Record<string, string> = {};
+          for (const m of msgs) {
+            const convId = String(m.conversationId || '');
+            if (!convId) continue;
+            const mappedMsg: Message = {
+              id: m.id,
+              senderId: m.from?.id || 'unknown',
+              senderName: m.from?.name || 'Unknown',
+              content: m.message || '',
+              timestamp: new Date(m.created_time || Date.now()),
+              status: 'read',
+              isRead: true,
+              conversationId: convId,
+              mediaUrls: []
+            };
+            if (!byConv[convId]) byConv[convId] = [];
+            byConv[convId].push(mappedMsg);
+            const participants = m.conversationParticipants?.data || [];
+            for (const p of participants) {
+              if (p?.id) mapPID[p.id] = convId;
+            }
+          }
+          const convList: Conversation[] = Object.keys(byConv).map((cid) => {
+            const msgsForConv = byConv[cid].slice().sort((a,b)=>b.timestamp.getTime()-a.timestamp.getTime());
+            const latest = msgsForConv[0];
+            const participants = (msgs.find(mm => String(mm.conversationId||'')===cid)?.conversationParticipants?.data) || [];
+            const names = participants.map((p: any) => p.name).filter(Boolean);
+            return {
+              id: cid,
               platform: 'FACEBOOK',
-              participantNames: ['John Doe'],
-              lastMessage: {
-                content: 'Hello, I have a question about your services.',
-                timestamp: new Date(Date.now() - 1000 * 60 * 30),
-                senderName: 'John Doe'
-              },
-              unreadCount: 2,
-              isActive: true,
-            },
-            {
-              id: 'mock_conversation_2',
-              platform: 'FACEBOOK',
-              participantNames: ['Jane Smith'],
-              lastMessage: {
-                content: 'Thanks for your help!',
-                timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-                senderName: 'Jane Smith'
-              },
+              participantNames: names.length ? names : [latest?.senderName || 'Unknown'],
+              lastMessage: latest ? { content: latest.content, timestamp: latest.timestamp, senderName: latest.senderName } : undefined,
               unreadCount: 0,
               isActive: true,
-            }
-          ];
-          setConversations(mockConversations);
-          return;
+              avatar: undefined
+            };
+          });
+          setLiveMessagesByConversation(byConv);
+          setParticipantToConversation(mapPID);
+          setConversations(convList);
+        } else {
+          const res = await fetch('/api/facebook/conversations/stored');
+          if (!res.ok) {
+            setConversations([]);
+            return;
+          }
+          const data = await res.json();
+          const mappedConversations: Conversation[] = (data.conversations || []).map((conv: any) => ({
+            id: conv.id,
+            platform: conv.platform || 'FACEBOOK',
+            participantNames: [conv.customer?.name || 'Unknown'],
+            lastMessage: conv.lastMessagePreview ? {
+              content: conv.lastMessagePreview,
+              timestamp: new Date(conv.lastMessageAt || Date.now()),
+              senderName: conv.customer?.name || 'Unknown'
+            } : undefined,
+            unreadCount: conv.unreadCount || 0,
+            isActive: conv.status === 'OPEN',
+            avatar: conv.customer?.avatar
+          }));
+          setConversations(mappedConversations);
         }
-        
-        const data = await res.json();
-        const mappedConversations: Conversation[] = (data.conversations || []).map((conv: any) => ({
-          id: conv.id,
-          platform: conv.platform || 'FACEBOOK',
-          participantNames: [conv.customer?.name || 'Unknown'],
-          lastMessage: conv.lastMessagePreview ? {
-            content: conv.lastMessagePreview,
-            timestamp: new Date(conv.lastMessageAt || Date.now()),
-            senderName: conv.customer?.name || 'Unknown'
-          } : undefined,
-          unreadCount: conv.unreadCount || 0,
-          isActive: conv.status === 'OPEN',
-          avatar: conv.customer?.avatar
-        }));
-        
-        setConversations(mappedConversations);
       } catch (error) {
         console.error('Error fetching conversations:', error);
-        // Use mock data on error
-        const mockConversations: Conversation[] = [
-          {
-            id: 'mock_conversation_1',
-            platform: 'FACEBOOK',
-            participantNames: ['John Doe'],
-            lastMessage: {
-              content: 'Hello, I have a question about your services.',
-              timestamp: new Date(Date.now() - 1000 * 60 * 30),
-              senderName: 'John Doe'
-            },
-            unreadCount: 2,
-            isActive: true,
-          },
-          {
-            id: 'mock_conversation_2',
-            platform: 'FACEBOOK',
-            participantNames: ['Jane Smith'],
-            lastMessage: {
-              content: 'Thanks for your help!',
-              timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-              senderName: 'Jane Smith'
-            },
-            unreadCount: 0,
-            isActive: true,
-          }
-        ];
-        setConversations(mockConversations);
+        setConversations([]);
       } finally {
         setLoading(false);
       }
@@ -137,51 +133,247 @@ function ChatInboxContent() {
     fetchConversations();
   }, [selectedBusiness]);
 
+  useEffect(() => {
+    selectedConversationRef.current = selectedConversationId;
+  }, [selectedConversationId]);
+
+  useEffect(() => {
+    participantToConversationRef.current = participantToConversation;
+  }, [participantToConversation]);
+
+  useEffect(() => {
+    if (!selectedBusiness) return;
+    
+    const socket = io(window.location.origin, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+
+    const adminSocket = io(window.location.origin + '/admin', {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+    
+    socket.on('connect', () => {
+      console.log('Chat socket connected:', socket.id);
+    });
+    
+    socket.on('connect_error', (error) => {
+      console.error('Chat socket connection error:', error);
+    });
+    
+    const handleWebhookRefresh = () => {
+      if (selectedBusiness) {
+        (async () => {
+          try {
+            const liveRes = await fetch('/api/admin/facebook/messages?limit=50', { cache: 'no-store' });
+            if (liveRes.ok) {
+              const liveData = await liveRes.json();
+              const msgs: any[] = Array.isArray(liveData.messages) ? liveData.messages : [];
+              const byConv: Record<string, Message[]> = {};
+              const mapPID: Record<string, string> = {};
+              for (const m of msgs) {
+                const convId = String(m.conversationId || '');
+                if (!convId) continue;
+                const mappedMsg: Message = {
+                  id: m.id,
+                  senderId: m.from?.id || 'unknown',
+                  senderName: m.from?.name || 'Unknown',
+                  content: m.message || '',
+                  timestamp: new Date(m.created_time || Date.now()),
+                  status: 'read',
+                  isRead: true,
+                  conversationId: convId,
+                  mediaUrls: []
+                };
+                if (!byConv[convId]) byConv[convId] = [];
+                byConv[convId].push(mappedMsg);
+                const participants = m.conversationParticipants?.data || [];
+                for (const p of participants) {
+                  if (p?.id) mapPID[p.id] = convId;
+                }
+              }
+              const convList: Conversation[] = Object.keys(byConv).map((cid) => {
+                const msgsForConv = byConv[cid].slice().sort((a,b)=>b.timestamp.getTime()-a.timestamp.getTime());
+                const latest = msgsForConv[0];
+                const participants = (msgs.find(mm => String(mm.conversationId||'')===cid)?.conversationParticipants?.data) || [];
+                const names = participants.map((p: any) => p.name).filter(Boolean);
+                return {
+                  id: cid,
+                  platform: 'FACEBOOK',
+                  participantNames: names.length ? names : [latest?.senderName || 'Unknown'],
+                  lastMessage: latest ? { content: latest.content, timestamp: latest.timestamp, senderName: latest.senderName } : undefined,
+                  unreadCount: 0,
+                  isActive: true,
+                  avatar: undefined
+                };
+              });
+              setLiveMessagesByConversation(byConv);
+              setParticipantToConversation(mapPID);
+              setConversations(convList);
+            }
+          } catch (error) {
+            console.error('Error refreshing conversations:', error);
+          }
+        })();
+      }
+      if (selectedConversationId) {
+        (async () => {
+          try {
+            const liveMsgs = liveMessagesByConversation[selectedConversationId] || [];
+            if (liveMsgs.length) {
+              setMessages(liveMsgs.slice().sort((a,b)=>a.timestamp.getTime()-b.timestamp.getTime()));
+            }
+          } catch (error) {
+            console.error('Error refreshing messages:', error);
+          }
+        })();
+      }
+    };
+    socket.on('facebook-webhook', handleWebhookRefresh);
+    adminSocket.on('facebook-webhook', handleWebhookRefresh);
+
+    const handleNewMessage = (data: any) => {
+      const instantMsg: Message = {
+        id: data?.id || `temp-${Date.now()}`,
+        senderId: data?.senderId || 'unknown',
+        senderName: data?.senderName || 'Unknown',
+        content: data?.content || '',
+        timestamp: new Date(data?.timestamp || Date.now()),
+        status: 'delivered',
+        isRead: false,
+        conversationId: selectedConversationRef.current || participantToConversationRef.current[data?.senderId] || `temp-${data?.senderId || Date.now()}`,
+        mediaUrls: []
+      };
+
+      let targetConversationId = selectedConversationRef.current || participantToConversationRef.current[data?.senderId];
+      if (!targetConversationId) {
+        const matched = conversations.find(c => (c.participantNames || []).includes(instantMsg.senderName));
+        targetConversationId = matched?.id || `temp-${instantMsg.senderId}`;
+      }
+
+      if (targetConversationId) {
+        setConversations(prev => {
+          const exists = prev.some(c => c.id === targetConversationId);
+          if (!exists) {
+            const newConv: Conversation = {
+              id: targetConversationId,
+              platform: 'FACEBOOK',
+              participantNames: [instantMsg.senderName],
+              lastMessage: { content: instantMsg.content, timestamp: instantMsg.timestamp, senderName: instantMsg.senderName },
+              unreadCount: selectedConversationId === targetConversationId ? 0 : 1,
+              isActive: true,
+              avatar: undefined
+            };
+            return [newConv, ...prev];
+          }
+          return prev.map(c => c.id === targetConversationId ? {
+            ...c,
+            lastMessage: { content: instantMsg.content, timestamp: instantMsg.timestamp, senderName: instantMsg.senderName },
+            unreadCount: selectedConversationId === targetConversationId ? 0 : (c.unreadCount + 1)
+          } : c);
+        });
+
+        if (selectedConversationRef.current === targetConversationId) {
+          setMessages(prev => [...prev, { ...instantMsg, conversationId: targetConversationId! }]);
+          setMessageStatuses(prev => {
+            const map = new Map(prev);
+            map.set(instantMsg.id, 'delivered');
+            return map;
+          });
+        }
+      }
+
+      if (selectedBusiness) {
+        (async () => {
+          try {
+            const liveRes = await fetch('/api/admin/facebook/messages?limit=50', { cache: 'no-store' });
+            if (liveRes.ok) {
+              const liveData = await liveRes.json();
+              const msgs: any[] = Array.isArray(liveData.messages) ? liveData.messages : [];
+              const byConv: Record<string, Message[]> = {};
+              for (const m of msgs) {
+                const convId = String(m.conversationId || '');
+                if (!convId) continue;
+                const mappedMsg: Message = {
+                  id: m.id,
+                  senderId: m.from?.id || 'unknown',
+                  senderName: m.from?.name || 'Unknown',
+                  content: m.message || '',
+                  timestamp: new Date(m.created_time || Date.now()),
+                  status: 'read',
+                  isRead: true,
+                  conversationId: convId,
+                  mediaUrls: []
+                };
+                if (!byConv[convId]) byConv[convId] = [];
+                byConv[convId].push(mappedMsg);
+              }
+              const convList: Conversation[] = Object.keys(byConv).map((cid) => {
+                const msgsForConv = byConv[cid].slice().sort((a,b)=>b.timestamp.getTime()-a.timestamp.getTime());
+                const latest = msgsForConv[0];
+                const participants = (msgs.find(mm => String(mm.conversationId||'')===cid)?.conversationParticipants?.data) || [];
+                const names = participants.map((p: any) => p.name).filter(Boolean);
+                return {
+                  id: cid,
+                  platform: 'FACEBOOK',
+                  participantNames: names.length ? names : [latest?.senderName || 'Unknown'],
+                  lastMessage: latest ? { content: latest.content, timestamp: latest.timestamp, senderName: latest.senderName } : undefined,
+                  unreadCount: 0,
+                  isActive: true,
+                  avatar: undefined
+                };
+              });
+              setLiveMessagesByConversation(byConv);
+              setConversations(convList);
+              if (selectedConversationId && byConv[selectedConversationId]) {
+                const liveMsgs = byConv[selectedConversationId];
+                setMessages(liveMsgs.slice().sort((a,b)=>a.timestamp.getTime()-b.timestamp.getTime()));
+              }
+            }
+          } catch (error) {
+            console.error('Error refreshing conversations:', error);
+          }
+        })();
+      }
+    };
+    socket.on('new-message', handleNewMessage);
+    adminSocket.on('new-message', handleNewMessage);
+    
+    return () => { 
+      if (socket.connected) {
+        socket.disconnect(); 
+      }
+      if (adminSocket.connected) {
+        adminSocket.disconnect();
+      }
+    };
+  }, [selectedBusiness, selectedConversationId]);
+
   // Fetch messages for selected conversation
   useEffect(() => {
     if (!selectedConversationId) return;
 
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`/api/facebook/conversations/${selectedConversationId}/messages`);
-        if (!res.ok) {
-          console.log('Messages API failed, using mock messages');
-          const mockMessages: Message[] = [
-            {
-              id: 'mock_message_1',
-              senderId: 'customer_1',
-              senderName: 'John Doe',
-              content: 'Hello, I have a question about your services.',
-              timestamp: new Date(Date.now() - 1000 * 60 * 30),
-              status: 'read',
-              isRead: true,
-              conversationId: selectedConversationId,
-            },
-            {
-              id: 'mock_message_2',
-              senderId: 'business_1',
-              senderName: 'Your Business',
-              content: 'Of course! I\'d be happy to help. What would you like to know?',
-              timestamp: new Date(Date.now() - 1000 * 60 * 25),
-              status: 'read',
-              isRead: true,
-              conversationId: selectedConversationId,
-            },
-            {
-              id: 'mock_message_3',
-              senderId: 'customer_1',
-              senderName: 'John Doe',
-              content: 'What are your pricing plans?',
-              timestamp: new Date(Date.now() - 1000 * 60 * 20),
-              status: 'read',
-              isRead: true,
-              conversationId: selectedConversationId,
-            }
-          ];
-          setMessages(mockMessages);
+        const liveMsgs = liveMessagesByConversation[selectedConversationId];
+        if (liveMsgs && liveMsgs.length) {
+          setMessages(liveMsgs.slice().sort((a,b)=>a.timestamp.getTime()-b.timestamp.getTime()));
           return;
         }
-        
+        const res = await fetch(`/api/facebook/conversations/${selectedConversationId}/messages/stored`);
+        if (!res.ok) {
+          setMessages([]);
+          return;
+        }
         const data = await res.json();
         const mappedMessages: Message[] = (data.messages || []).map((msg: any) => ({
           id: msg.id,
@@ -194,44 +386,10 @@ function ChatInboxContent() {
           conversationId: selectedConversationId,
           mediaUrls: msg.attachments?.map((att: any) => att.url) || []
         }));
-        
         setMessages(mappedMessages);
       } catch (error) {
         console.error('Error fetching messages:', error);
-        // Use mock data on error
-        const mockMessages: Message[] = [
-          {
-            id: 'mock_message_1',
-            senderId: 'customer_1',
-            senderName: 'John Doe',
-            content: 'Hello, I have a question about your services.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 30),
-            status: 'read',
-            isRead: true,
-            conversationId: selectedConversationId,
-          },
-          {
-            id: 'mock_message_2',
-            senderId: 'business_1',
-            senderName: 'Your Business',
-            content: 'Of course! I\'d be happy to help. What would you like to know?',
-            timestamp: new Date(Date.now() - 1000 * 60 * 25),
-            status: 'read',
-            isRead: true,
-            conversationId: selectedConversationId,
-          },
-          {
-            id: 'mock_message_3',
-            senderId: 'customer_1',
-            senderName: 'John Doe',
-            content: 'What are your pricing plans?',
-            timestamp: new Date(Date.now() - 1000 * 60 * 20),
-            status: 'read',
-            isRead: true,
-            conversationId: selectedConversationId,
-          }
-        ];
-        setMessages(mockMessages);
+        setMessages([]);
       }
     };
 
@@ -256,7 +414,7 @@ function ChatInboxContent() {
       // Add temporary message to state
       setMessages(prev => [...prev, tempMessage]);
       
-      const res = await fetch(`/api/facebook/conversations/${conversationId}/messages`, {
+      const res = await fetch(`/api/facebook/conversations/${conversationId}/messages/stored`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: content })
@@ -271,7 +429,7 @@ function ChatInboxContent() {
         });
         
         // Refresh messages after sending
-        const reload = await fetch(`/api/facebook/conversations/${conversationId}/messages`);
+        const reload = await fetch(`/api/facebook/conversations/${conversationId}/messages/stored`);
         if (reload.ok) {
           const data = await reload.json();
           const mappedMessages: Message[] = (data.messages || []).map((msg: any) => ({

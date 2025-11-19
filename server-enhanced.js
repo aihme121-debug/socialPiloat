@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const { initializeSocket } = require('./socket-server');
 const { portManager } = require('./src/lib/system/port-manager');
 const { systemMonitor } = require('./src/lib/system/system-monitor');
+const { facebookConnectionManager } = require('./src/lib/services/facebook-connection-manager');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -69,6 +70,14 @@ function setupGracefulShutdown(server) {
     
     systemMonitor.logInfo('system', 'Server shutdown initiated', { signal });
     
+    // Shutdown Facebook connection manager
+    try {
+      await facebookConnectionManager.shutdown();
+      console.log('Facebook connection manager shut down');
+    } catch (fbError) {
+      console.error('Error shutting down Facebook connection manager:', fbError);
+    }
+    
     server.close(() => {
       console.log('HTTP server closed');
       process.exit(0);
@@ -121,6 +130,16 @@ async function startServer() {
     console.log('Initializing Socket.io...');
     initializeSocket(server);
     systemMonitor.updateSocketServerStatus(true, 0);
+    
+    // Initialize Facebook connection manager
+    console.log('Initializing Facebook connection manager...');
+    try {
+      await facebookConnectionManager.initialize();
+      console.log('✅ Facebook connection manager initialized');
+    } catch (fbError) {
+      console.error('❌ Failed to initialize Facebook connection manager:', fbError);
+      systemMonitor.logError('facebook', 'Connection manager initialization failed', fbError);
+    }
     
     // Setup graceful shutdown
     setupGracefulShutdown(server);

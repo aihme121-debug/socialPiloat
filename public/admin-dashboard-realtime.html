@@ -1007,29 +1007,34 @@
             updateNgrokStatus(data) {
                 const status = data.status || {};
                 const ngrokStatus = status.ngrok || {};
-                
-                // ngrok status indicator
-                const ngrokIndicator = document.getElementById('ngrok-status');
-                
-                if (ngrokStatus.tunnel && ngrokStatus.tunnel.active) {
-                    ngrokIndicator.className = 'status-indicator status-online';
-                } else if (ngrokStatus.tunnel && ngrokStatus.tunnel.lastError) {
-                    ngrokIndicator.className = 'status-indicator status-offline';
-                } else {
-                    ngrokIndicator.className = 'status-indicator status-warning';
-                }
-                
-                // ngrok metrics
                 const tunnelStatus = ngrokStatus.tunnel || {};
-                
-                document.getElementById('ngrok-tunnel').textContent = 
-                    tunnelStatus.active ? 'Active' : 'Inactive';
-                document.getElementById('ngrok-url').textContent = 
-                    tunnelStatus.url || 'Not established';
-                document.getElementById('ngrok-restarts').textContent = 
-                    tunnelStatus.restartCount || 0;
-                document.getElementById('ngrok-last-error').textContent = 
-                    tunnelStatus.lastError || 'No errors';
+                const ngrokIndicator = document.getElementById('ngrok-status');
+                const isLocalHost = ['localhost', '127.0.0.1'].includes(location.hostname);
+                const isNgrokDomain = /ngrok/i.test(tunnelStatus.url || '') || /\.ngrok(-free)?\.app$/i.test(location.hostname);
+
+                if (tunnelStatus.active) {
+                    ngrokIndicator.className = 'status-indicator status-online';
+                    document.getElementById('ngrok-tunnel').textContent = 'Active';
+                    document.getElementById('ngrok-url').textContent = tunnelStatus.url || 'Established';
+                } else if (tunnelStatus.lastError) {
+                    ngrokIndicator.className = 'status-indicator status-offline';
+                    document.getElementById('ngrok-tunnel').textContent = 'Inactive';
+                    document.getElementById('ngrok-url').textContent = 'Not established';
+                } else {
+                    // Production domains do not require ngrok; reflect that clearly
+                    if (!isLocalHost && !isNgrokDomain) {
+                        ngrokIndicator.className = 'status-indicator status-online';
+                        document.getElementById('ngrok-tunnel').textContent = 'Not Needed';
+                        document.getElementById('ngrok-url').textContent = window.location.origin;
+                    } else {
+                        ngrokIndicator.className = 'status-indicator status-warning';
+                        document.getElementById('ngrok-tunnel').textContent = 'Inactive';
+                        document.getElementById('ngrok-url').textContent = tunnelStatus.url || 'Not established';
+                    }
+                }
+
+                document.getElementById('ngrok-restarts').textContent = tunnelStatus.restartCount || 0;
+                document.getElementById('ngrok-last-error').textContent = tunnelStatus.lastError || 'No errors';
             }
             
             updateStats(data) {

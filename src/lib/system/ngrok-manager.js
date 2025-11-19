@@ -3,6 +3,14 @@ const http = require('http');
 const fs = require('fs').promises;
 const path = require('path');
 
+// Import system monitor to update status
+let systemMonitor;
+try {
+  systemMonitor = require('./system-monitor').systemMonitor;
+} catch (error) {
+  console.warn('System monitor not available for ngrok status updates');
+}
+
 /**
  * Ngrok Integration Manager for SocialPiloat AI
  * Handles ngrok tunnel setup, monitoring, and URL management
@@ -15,6 +23,10 @@ class NgrokManager {
     this.isRunning = false;
     this.startupTimeout = 30000;
     this.apiTimeout = 5000;
+    this.attachedToExisting = false;
+    this.statusInterval = null;
+    this.failureCount = 0;
+    this.lastReportedUrl = null;
   }
 
   /**
@@ -26,11 +38,27 @@ class NgrokManager {
       console.log('🌐 Ngrok is already running');
       return this.publicUrl;
     }
+    // First, try to attach to an existing ngrok instance via local API
+    try {
+      const existingUrl = await this.getPublicUrl();
+      if (existingUrl) {
+        this.publicUrl = existingUrl;
+        this.isRunning = true;
+        this.attachedToExisting = true;
+        console.log(`✅ Attached to existing ngrok tunnel: ${existingUrl}`);
+        if (systemMonitor && systemMonitor.updateNgrokStatus) {
+          systemMonitor.updateNgrokStatus(true, existingUrl);
+        }
+        this.startStatusPolling();
+        await this.updateEnvironmentVariables(existingUrl);
+        return existingUrl;
+      }
+    } catch {}
 
     return new Promise((resolve, reject) => {
       console.log(`🌐 Starting ngrok tunnel on port ${this.port}...`);
       
-      this.process = spawn('ngrok', ['http', this.port.toString()], {
+      this.process = spawn('ngrok', ['http', this.port.toString(), '--pooling-enabled'], {
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: true
       });
@@ -55,6 +83,14 @@ class NgrokManager {
                   this.isRunning = true;
                   console.log(`✅ Ngrok tunnel established: ${publicUrl}`);
                   
+                  // Update system monitor with ngrok status
+                  if (systemMonitor && systemMonitor.updateNgrokStatus) {
+                    systemMonitor.updateNgrokStatus(true, publicUrl);
+                  }
+                  
+                  this.attachedToExisting = false;
+                  this.startStatusPolling();
+
                   await this.updateEnvironmentVariables(publicUrl);
                   resolve(publicUrl);
                   
@@ -74,8 +110,37 @@ class NgrokManager {
         const error = data.toString();
         console.error('Ngrok error:', error.trim());
         
+        // If another ngrok endpoint is already online, try to attach to it
+        if (!startupResolved && /already online/i.test(error)) {
+          (async () => {
+            try {
+              const publicUrl = await this.getPublicUrl();
+              this.publicUrl = publicUrl;
+              this.isRunning = true; // external tunnel detected
+              if (systemMonitor && systemMonitor.updateNgrokStatus) {
+                systemMonitor.updateNgrokStatus(true, publicUrl);
+              }
+              this.attachedToExisting = true;
+              this.startStatusPolling();
+              await this.updateEnvironmentVariables(publicUrl);
+              startupResolved = true;
+              resolve(publicUrl);
+            } catch (attachErr) {
+              startupResolved = true;
+              if (systemMonitor && systemMonitor.updateNgrokStatus) {
+                systemMonitor.updateNgrokStatus(false, undefined, attachErr.message);
+              }
+              reject(new Error(`Ngrok startup failed: ${error}`));
+            }
+          })();
+          return;
+        }
+
         if (!startupResolved) {
           startupResolved = true;
+          if (systemMonitor && systemMonitor.updateNgrokStatus) {
+            systemMonitor.updateNgrokStatus(false, undefined, error.trim());
+          }
           reject(new Error(`Ngrok startup failed: ${error}`));
         }
       });
@@ -90,9 +155,15 @@ class NgrokManager {
       
       this.process.on('exit', (code, signal) => {
         console.log(`🛑 Ngrok exited with code ${code} and signal ${signal}`);
+        this.process = null;
+        if (this.attachedToExisting) {
+          return;
+        }
         this.isRunning = false;
         this.publicUrl = null;
-        
+        if (systemMonitor && systemMonitor.updateNgrokStatus) {
+          systemMonitor.updateNgrokStatus(false);
+        }
         if (!startupResolved) {
           startupResolved = true;
           reject(new Error(`Ngrok exited with code ${code}`));
@@ -166,12 +237,61 @@ class NgrokManager {
     });
   }
 
+  startStatusPolling() {
+    if (this.statusInterval) return;
+    this.statusInterval = setInterval(async () => {
+      try {
+        const url = await this.getPublicUrl();
+        if (url) {
+          this.publicUrl = url;
+          this.isRunning = true;
+          this.failureCount = 0;
+          // Only broadcast when URL changes or previously inactive
+          if (url !== this.lastReportedUrl) {
+            this.lastReportedUrl = url;
+            if (systemMonitor && systemMonitor.updateNgrokStatus) {
+              systemMonitor.updateNgrokStatus(true, url);
+            }
+          }
+        } else {
+          this.failureCount += 1;
+          // Debounce transient failures; only mark inactive after 3 consecutive failures
+          if (this.failureCount >= 3) {
+            this.isRunning = false;
+            this.publicUrl = null;
+            this.lastReportedUrl = null;
+            if (systemMonitor && systemMonitor.updateNgrokStatus) {
+              systemMonitor.updateNgrokStatus(false, undefined, 'ngrok API polling failures');
+            }
+          }
+        }
+      } catch (err) {
+        this.failureCount += 1;
+        if (this.failureCount >= 3) {
+          if (systemMonitor && systemMonitor.updateNgrokStatus) {
+            systemMonitor.updateNgrokStatus(false, undefined, err.message);
+          }
+          this.isRunning = false;
+          this.publicUrl = null;
+          this.lastReportedUrl = null;
+        }
+      }
+    }, 7000);
+  }
+
+  stopStatusPolling() {
+    if (this.statusInterval) {
+      clearInterval(this.statusInterval);
+      this.statusInterval = null;
+    }
+  }
+
   /**
    * Update environment variables with ngrok URLs
    * @param {string} publicUrl - Public URL
    */
   async updateEnvironmentVariables(publicUrl) {
-    const envFile = path.join(__dirname, '.env.local');
+    const envFile = path.resolve(process.cwd(), '.env.local');
     
     try {
       let envContent = '';
@@ -186,7 +306,7 @@ class NgrokManager {
       // Generate URLs
       const urls = {
         FACEBOOK_REDIRECT_URI: `${publicUrl}/api/auth/social/facebook/callback`,
-        FACEBOOK_WEBHOOK_CALLBACK_URL: `${publicUrl}/api/facebook/webhook`,
+        FACEBOOK_WEBHOOK_CALLBACK_URL: `${publicUrl}/api/facebook/webhook/realtime`,
         INSTAGRAM_REDIRECT_URI: `${publicUrl}/api/auth/social/instagram/callback`,
         TWITTER_REDIRECT_URI: `${publicUrl}/api/auth/social/twitter/callback`,
         LINKEDIN_REDIRECT_URI: `${publicUrl}/api/auth/social/linkedin/callback`,
@@ -222,15 +342,11 @@ class NgrokManager {
    * @returns {Promise<Object>} - Tunnel status
    */
   async getStatus() {
-    if (!this.isRunning) {
-      return { running: false, publicUrl: null };
-    }
-    
     try {
       const publicUrl = await this.getPublicUrl();
       return {
-        running: true,
-        publicUrl,
+        running: !!publicUrl,
+        publicUrl: publicUrl || null,
         port: this.port,
         pid: this.process ? this.process.pid : null
       };
@@ -268,6 +384,8 @@ class NgrokManager {
       this.process = null;
       this.isRunning = false;
       this.publicUrl = null;
+      this.attachedToExisting = false;
+      this.stopStatusPolling();
       
       console.log('✅ Ngrok tunnel stopped');
     }

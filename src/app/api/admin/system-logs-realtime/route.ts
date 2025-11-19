@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { systemMonitor } from '@/lib/system/system-monitor-realtime';
+import { systemMonitor } from '@/lib/system/system-monitor-js';
 import { LogLevel } from '@/lib/logging/logger-service';
 
 /**

@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+import { prisma } from '@/lib/prisma'
 import { FacebookService } from './facebook-service'
 import { OpenAI } from 'openai'
 import { logger } from '@/lib/logging/logger-service'
@@ -128,7 +128,7 @@ export class FacebookMessagingService {
       await this.storeMessage(context)
 
       // Check if auto-reply is enabled for this business
-      const business = await db.business.findUnique({
+      const business = await prisma.business.findUnique({
         where: { id: context.businessId },
         select: {
           settings: true,
@@ -174,7 +174,7 @@ export class FacebookMessagingService {
 
   private async storeMessage(context: MessageContext): Promise<void> {
     try {
-      await db.chatMessage.create({
+      await prisma.chatMessage.create({
         data: {
           platform: context.platform,
           accountId: context.accountId,
@@ -375,7 +375,7 @@ Generate a helpful response:`
       )
 
       // Update message status in database
-      await db.chatMessage.updateMany({
+      await prisma.chatMessage.updateMany({
         where: {
           messageId: context.messageId,
           businessId: context.businessId
@@ -436,7 +436,7 @@ Generate a helpful response:`
 
   async getConversationHistory(senderId: string, businessId: string, limit: number = 10): Promise<any[]> {
     try {
-      const messages = await db.chatMessage.findMany({
+      const messages = await prisma.chatMessage.findMany({
         where: {
           senderId,
           businessId

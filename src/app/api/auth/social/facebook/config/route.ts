@@ -123,7 +123,7 @@ async function testFacebookConnection() {
   const testAuthUrl = new URL('https://www.facebook.com/v18.0/dialog/oauth');
   testAuthUrl.searchParams.set('client_id', appId);
   testAuthUrl.searchParams.set('redirect_uri', redirectUri);
-  testAuthUrl.searchParams.set('scope', 'pages_manage_posts,pages_read_engagement');
+  testAuthUrl.searchParams.set('scope', 'pages_manage_posts,pages_read_engagement,pages_messaging,pages_messaging_subscriptions,pages_manage_metadata');
   testAuthUrl.searchParams.set('response_type', 'code');
   testAuthUrl.searchParams.set('state', 'test_state');
 

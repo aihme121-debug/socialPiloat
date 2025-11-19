@@ -138,7 +138,19 @@ export default function SocialAccountsPage() {
       console.log('Session user ID:', session?.user?.id);
       console.log('Session email:', session?.user?.email);
       
-      const response = await fetch('/api/social-accounts');
+      if (!session?.user?.id) {
+        console.log('No user session found, skipping fetch');
+        setAccounts([]);
+        return;
+      }
+      
+      const response = await fetch('/api/social-accounts', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
       console.log('Response status:', response.status);
       
       if (!response.ok) {
@@ -151,12 +163,18 @@ export default function SocialAccountsPage() {
           errorData = { error: errorText || 'Unknown error' };
         }
         console.error('Failed to fetch accounts:', errorData);
+        // Don't treat 404 as an error - just means no accounts yet
+        if (response.status === 404) {
+          setAccounts([]);
+          return;
+        }
+        
         throw new Error(errorData.error || 'Failed to fetch accounts');
       }
       
       const data = await response.json();
       console.log('Social accounts data:', data);
-      setAccounts(data.accounts);
+      setAccounts(data.accounts || []);
     } catch (error) {
       console.error('Error fetching accounts:', error);
       setError(`Failed to load social accounts: ${error instanceof Error ? error.message : 'Unknown error'}`);

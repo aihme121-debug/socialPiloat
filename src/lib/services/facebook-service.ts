@@ -1,6 +1,7 @@
 // import { facebook } from '@facebook-node/core'; // This package doesn't exist, using fetch instead
 import { prisma } from '@/lib/prisma';
 import { logger } from '@/lib/logging/logger-service';
+import { systemMonitor } from '@/lib/system/system-monitor';
 
 interface FacebookAnalytics {
   followers: number;
@@ -115,8 +116,13 @@ export class FacebookService {
     const url = `${this.baseURL}/${pageId}/insights?metric=${metrics}&since=${since}&until=${until}&access_token=${accessToken}`;
     
     try {
+      const startTime = Date.now();
       const response = await fetch(url);
+      const responseTime = Date.now() - startTime;
       const data = await response.json();
+      
+      // Update Facebook API status - success
+      systemMonitor.updateFacebookApiStatus('connected', responseTime);
       
       // Check if this is a user access token error
       if (data.error && data.error.code === 100) {
@@ -131,6 +137,8 @@ export class FacebookService {
       }
       
       if (data.error) {
+        // Update Facebook API status - error
+        systemMonitor.updateFacebookApiStatus('error', responseTime, data.error.message);
         throw new Error(`Facebook API error: ${data.error.message}`);
       }
 
@@ -148,6 +156,8 @@ export class FacebookService {
       return insights;
     } catch (error) {
       console.error('Error fetching page insights:', error);
+      // Update Facebook API status - error
+      systemMonitor.updateFacebookApiStatus('error', 0, error instanceof Error ? error.message : 'Unknown error');
       return {};
     }
   }
@@ -183,8 +193,13 @@ export class FacebookService {
     let url = `${this.baseURL}/${pageId}?fields=fan_count&access_token=${accessToken}`;
     
     try {
+      const startTime = Date.now();
       const response = await fetch(url);
+      const responseTime = Date.now() - startTime;
       const data = await response.json();
+      
+      // Update Facebook API status - success
+      systemMonitor.updateFacebookApiStatus('connected', responseTime);
       
       // Check if this is a user access token error
       if (data.error && data.error.code === 100) {
@@ -203,12 +218,16 @@ export class FacebookService {
       }
       
       if (data.error) {
+        // Update Facebook API status - error
+        systemMonitor.updateFacebookApiStatus('error', responseTime, data.error.message);
         throw new Error(`Facebook API error: ${data.error.message}`);
       }
 
       return data.fan_count || 0;
     } catch (error) {
       console.error('Error fetching follower count:', error);
+      // Update Facebook API status - error
+      systemMonitor.updateFacebookApiStatus('error', 0, error instanceof Error ? error.message : 'Unknown error');
       return 0;
     }
   }

@@ -11,6 +11,9 @@ const next = require('next');
 const { initializeSocketIO } = require('./src/lib/socket/socket-server');
 const PortManager = require('./src/lib/system/port-manager');
 const NgrokManager = require('./src/lib/system/ngrok-manager');
+const { systemMonitor } = require('./src/lib/system/system-monitor-js');
+const { prisma } = require('./src/lib/prisma');
+const { FacebookConnectionManager } = require('./src/lib/services/facebook-connection-manager');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
@@ -44,6 +47,17 @@ async function startServer() {
     // Prepare Next.js
     console.log('📦 Preparing Next.js...');
     await app.prepare();
+    
+    // Test database connection
+    console.log('🗄️ Testing database connection...');
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      systemMonitor.updateDatabaseStatus('connected');
+      console.log('✅ Database connection successful');
+    } catch (error) {
+      console.error('❌ Database connection failed:', error.message);
+      systemMonitor.updateDatabaseStatus('disconnected', error.message);
+    }
     
     // Create HTTP server
     const server = createServer(async (req, res) => {
@@ -80,6 +94,21 @@ async function startServer() {
           }
         }
         
+        // Update Facebook webhook connection status hints
+        if (pathname === '/api/facebook/webhook') {
+          try {
+            if (req.method === 'GET') {
+              const mode = query['hub.mode'];
+              const token = query['hub.verify_token'];
+              if (mode === 'subscribe' && token === process.env.FACEBOOK_WEBHOOK_VERIFY_TOKEN) {
+                systemMonitor.updateFacebookWebhookStatus(true);
+              }
+            } else if (req.method === 'POST') {
+              systemMonitor.updateFacebookWebhookStatus(true);
+            }
+          } catch {}
+        }
+
         // Handle all other requests with Next.js
         await handle(req, res, parsedUrl);
         
@@ -94,11 +123,31 @@ async function startServer() {
     console.log('🔌 Initializing Socket.IO...');
     const io = initializeSocketIO(server);
     
+    // Initialize Facebook connection manager
+    console.log('📘 Initializing Facebook connection manager...');
+    try {
+      const facebookConnectionManager = new FacebookConnectionManager();
+      await facebookConnectionManager.initialize();
+      console.log('✅ Facebook connection manager initialized');
+      
+      // Store reference for later use
+      global.facebookConnectionManager = facebookConnectionManager;
+    } catch (fbError) {
+      console.error('❌ Failed to initialize Facebook connection manager:', fbError);
+      systemMonitor.logError('facebook', 'Connection manager initialization failed', fbError);
+    }
+    
     // Start server
     server.listen(port, (err) => {
       if (err) throw err;
       console.log(`✅ Server ready on http://${hostname}:${port}`);
       console.log(`📱 Local: http://localhost:${port}`);
+      
+      // Update system monitor with server and Socket.IO status
+      console.log('🔧 Updating system monitor status...');
+      systemMonitor.updateSocketServerStatus(true, 0);
+      systemMonitor.updateServerPort(port);
+      console.log('✅ System monitor status updated');
       
       // Start ngrok if available
       startNgrok();

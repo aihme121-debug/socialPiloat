@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { db } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 import { CampaignStatus } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's business
-    const user = await db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: { business: true }
     });
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Filter campaigns through content business relation
-    const campaignsWithContent = await db.content.findMany({
+    const campaignsWithContent = await prisma.content.findMany({
       where: {
         businessId: user.business.id
       },
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       whereClause.status = status as CampaignStatus;
     }
 
-    const campaigns = await db.campaign.findMany({
+    const campaigns = await prisma.campaign.findMany({
       where: whereClause,
       include: {
         content: {
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
-    const total = await db.campaign.count({
+    const total = await prisma.campaign.count({
       where: whereClause
     });
 
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { email: session.user.email },
       include: { business: true }
     });
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create campaign with proper data structure
-    const campaign = await db.campaign.create({
+    const campaign = await prisma.campaign.create({
       data: {
         name,
         objectives: {
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Create initial content for the campaign
-    const campaignContent = await db.content.create({
+    const campaignContent = await prisma.content.create({
       data: {
         contentType: 'campaign',
         contentText: `Campaign: ${name}`,

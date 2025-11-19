@@ -27,8 +27,10 @@ export const useSocket = ({ conversationId, userId }: UseSocketProps): UseSocket
       try {
         setIsConnecting(true);
 
-        const socketInstance = io('http://localhost:3002', {
+        const socketInstance = io('/admin', {
           transports: ['websocket', 'polling'],
+          path: '/socket.io',
+          withCredentials: true,
           reconnection: true,
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,

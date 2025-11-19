@@ -67,7 +67,7 @@ class DynamicOAuthConfig {
       redirectUri,
       authUrl: 'https://www.facebook.com/v18.0/dialog/oauth',
       tokenUrl: 'https://graph.facebook.com/v18.0/oauth/access_token',
-      scope: 'pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,pages_show_list',
+      scope: 'pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,pages_show_list,pages_messaging,pages_messaging_subscriptions,pages_manage_metadata',
       platform: 'facebook'
     };
   }
